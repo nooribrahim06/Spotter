@@ -19,9 +19,9 @@ enum UserRole {
 // A registered Spotter account.
 model User {
   id           String @id @default(uuid()) @db.Uuid
-  email        String @unique @db.VarChar(255)
+  email        String @unique @db.VarChar(254)
   username     String @unique @db.VarChar(30)
-  passwordHash String @map("password_hash") @db.VarChar(255)
+  passwordHash String @map("password_hash") @db.VarChar(100)
 
   firstName String?  @map("first_name") @db.VarChar(100)
   lastName  String?  @map("last_name") @db.VarChar(100)
