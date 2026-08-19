@@ -1,0 +1,36 @@
+// Prisma generates a database client from this schema.
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+// Prisma will communicate with a PostgreSQL database.
+datasource db {
+  provider = "postgresql"
+}
+
+// The only roles that can be stored in the users table.
+enum UserRole {
+  USER
+  COACH
+  ADMIN
+}
+
+// A registered Spotter account.
+model User {
+  id           String @id @default(uuid()) @db.Uuid
+  email        String @unique @db.VarChar(255)
+  username     String @unique @db.VarChar(30)
+  passwordHash String @map("password_hash") @db.VarChar(255)
+
+  firstName String?  @map("first_name") @db.VarChar(100)
+  lastName  String?  @map("last_name") @db.VarChar(100)
+  language  String   @default("en") @db.VarChar(10)
+  country   String?  @db.VarChar(2)
+  role      UserRole @default(USER)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("users")
+}

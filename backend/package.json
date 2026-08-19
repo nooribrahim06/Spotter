@@ -1,0 +1,14 @@
+{
+  "name": "spotter-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:validate": "prisma validate",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio"
+  },
+  "devDependencies": {
+    "prisma": "^7.9.1"
+  }
+}
