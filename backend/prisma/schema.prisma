@@ -1,4 +1,3 @@
-// Prisma generates a database client from this schema.
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -28,6 +27,10 @@ model User {
   language  String   @default("en") @db.VarChar(10)
   country   String?  @db.VarChar(2)
   role      UserRole @default(USER)
+
+  emailVerified        Boolean   @default(false) @map("email_verified")
+  verifyToken          String?   @map("verify_token") @db.VarChar(64)
+  verifyTokenExpiresAt DateTime? @map("verify_token_expires_at") @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
