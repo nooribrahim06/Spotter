@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// ─── signup ──────────────────────────────────────────────────────────
+//  signup 
 // Receives the validated body from the controller (email, username, password).
 // Returns an object the controller can send back as JSON.
 export async function signup({ email, username, password }) {
@@ -43,6 +43,7 @@ export async function signup({ email, username, password }) {
     // attacker could verify any account.  Instead we store a SHA-256 hash.
     // SHA-256 is fine here (unlike passwords) because the input is already
     // 256 bits of pure randomness — it can't be brute-forced.
+    // actually the attacker wil need 2^256 attempts to brute force the token, which is infeasible.
     const hashedToken = crypto
         .createHash("sha256")
         .update(rawToken)
