@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { createUser } from "./user.repository.js";
+import { verifyUserByToken } from "./user.repository.js";
 import nodemailer from "nodemailer";
-
+import { emailSendError } from "../../middlewares/errorHandling.js";
+import { invalidTokenError } from "../../middlewares/errorHandling.js";
 // Configure Nodemailer for Gmail
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -68,16 +70,38 @@ export async function signup({ email, username, password }) {
             from: `"Spotter" <${process.env.EMAIL_USER}>`,
             to: normalizedEmail,
             subject: 'Verify your email for Spotter',
-            text: `Click the link to verify your email: http://localhost:5173/verify-email?token=${rawToken}`,
-            html: `<p>Welcome to Spotter!</p><p>Click <a href="http://localhost:5173/verify-email?token=${rawToken}">here</a> to verify your email.</p>`
+            text: `Click the link to verify your email: ${process.env.FRONTEND_URL}/verify-email?token=${rawToken}`,
+            html: `<p>Welcome to Spotter!</p><p>Click <a href="${process.env.FRONTEND_URL}/verify-email?token=${rawToken}">here</a> to verify your email.</p>`
         });
         console.log("✅ Verification email sent! ID:", info.messageId);
     } catch (error) {
-        console.error("❌ Nodemailer failed to send email:", error);
+        console.error("❌ Failed to send verification email:", error);
+        throw new emailSendError("Failed to send verification email. Please try again later.");
     }
 
     // 6. Return response to controller
     return {
         message: "User created successfully. Check your email to verify your account.",
     };
+}
+
+
+export async function verifyEmail(token) {
+    // 1. hash the token received from the user
+    const hashedToken = crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex"); // 64-char hex string → fits VarChar(64)
+    // 2. find the user with that hashed token and check if it's expired
+    const updatedCount = await verifyUserByToken(hashedToken);
+
+    if (updatedCount === 0) {
+        throw new invalidTokenError("Verification link is invalid or has expired.");
+    }
+
+    return {
+         message: "Email verified successfully.",
+        };
+    // 3. if the repo succeded , update the user to set emailVerified = true, and clear the token and expiration
+    // 4. return a success message to the controller
 }

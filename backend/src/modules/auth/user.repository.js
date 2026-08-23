@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
-
+import { databaseError } from "../../middlewares/errorHandling.js";
+import { DuplicateUserError } from "../../middlewares/errorHandling.js";
 /**
  * Creates a new user in the database.
  * Returns the created user object (excluding sensitive fields).
@@ -12,7 +13,7 @@ export async function createUser({ email, username, passwordHash, verifyToken, v
         email,
         username,
         passwordHash,
-        verifyToken,
+        verifyToken, 
         verifyTokenExpiresAt,
         // emailVerified defaults to false in the schema
       },
@@ -39,11 +40,38 @@ export async function createUser({ email, username, passwordHash, verifyToken, v
         field = error.meta.target;
       }
       
-      const err = new Error(`A user with that ${field} already exists.`);
-      err.statusCode = 409; // 409 Conflict
-      throw err;
+      
+      throw new DuplicateUserError(field);
     }
     // Re-throw other unexpected database errors
-    throw error;
+    throw new databaseError("Database error occurred while creating user.");
   }
+}
+
+
+// Repository
+export async function verifyUserByToken(hashedToken) {
+  try {
+    const result = await prisma.user.updateMany({
+    where: {
+      verifyToken: hashedToken,
+      verifyTokenExpiresAt: {
+        gt: new Date(),
+      },
+      emailVerified: false,
+    },
+    data: {
+      emailVerified: true,
+      verifyToken: null,
+      verifyTokenExpiresAt: null,
+    },
+  });
+  return result.count; // number of rows updated
+}
+  catch (error) {
+    // need to analyze the error and throw a formatted error
+    throw new databaseError("Database error occurred while verifying user."); 
+  }
+
+
 }
