@@ -18,7 +18,7 @@ import { signupController } from "./auth.controller.js";
 import { verifyController } from "./auth.controller.js";
 import { loginController } from "./auth.controller.js";
 import { refreshController } from "./auth.controller.js";
-
+import { logoutController } from "./auth.controller.js";
 
 export const authRoutes = express.Router();
 authRoutes.post("/signup",
@@ -57,7 +57,13 @@ authRoutes.post("/refresh" ,
   rateLimiter,
   express.json(),
   refreshController
+);
+
+authRoutes.post("/logout",logoutController
 )
+
+
+
 authRoutes.get(
   "/protected",
   authenticateToken,

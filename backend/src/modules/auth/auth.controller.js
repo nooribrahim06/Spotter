@@ -1,5 +1,25 @@
 import * as authService from "./auth.service.js";
 import { env } from "../../config/env.js";
+
+
+// we will use this as a header for the refresh token cookie, so that we can set the cookie options in one place and use it in multiple places.
+// the base will be needed for clearing the cookie, and the options will be needed for setting the cookie.
+const refreshCookieBaseOptions = {
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
+};
+
+const refreshCookieOptions = {
+  ...refreshCookieBaseOptions,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
+
+
+
+
 export async function signupController(req, res) {
   const result = await authService.signup(req.validatedBody);
   return res.status(201).json(result);
@@ -21,14 +41,7 @@ export async function loginController(req, res) {
     });    
     
 
-        res.cookie("refreshToken", result.refreshToken, {
-            httpOnly: true,
-            secure: env.NODE_ENV === "production",
-            sameSite: "lax", // this is sameSite policy, making it true means the cookie will only be sent in a first-party context and not be sent along with requests initiated by third party websites
-            // we can say its lax because we want to allow the cookie to be sent in top-level navigation GET requests, but not in other cross-site requests.
-            // we try to avoid CSRF attacks, but we still want to allow the cookie to be sent in top-level navigation GET requests, because that is a common use case for our app.
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
+        res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
 
         res.status(200).json({
             status: "success",
@@ -46,13 +59,7 @@ export async function refreshController(req, res, next) {
       message: "Refresh token is missing",
     });
   }
-  const refreshCookieOptions = {
-  httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  sameSite: "lax",
-  path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-};
+  
 
   try {
     const result = await authService.refreshToken(refreshToken);
@@ -69,9 +76,25 @@ export async function refreshController(req, res, next) {
   ].includes(error.code);
 
   if (tokenIsUnusable) {
-    res.clearCookie("refreshToken", refreshCookieOptions);
+    res.clearCookie("refreshToken", refreshCookieBaseOptions);
   }
 
   return next(error);
   }
+}
+
+export async function logoutController(req, res) {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (refreshToken) {
+      await authService.logout(refreshToken);
+    }
+  } finally { // finally diff from catch is that it will always run, whether the try block succeeds or fails.
+    res.clearCookie("refreshToken", refreshCookieBaseOptions);
+  }
+
+  return res.status(200).json({
+    message: "Logged out successfully.",
+  });
 }

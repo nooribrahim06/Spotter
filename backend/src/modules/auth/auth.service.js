@@ -301,3 +301,14 @@ if (
         refreshToken: newRefreshToken
     };
 }
+export async function logout(rawRefreshToken) {
+  const tokenHash = jwtService.hashRefreshToken(rawRefreshToken);
+
+  const tokenRecord =
+    await RefreshTokenRepo.findRefreshTokenByHash(tokenHash);
+
+  // Logout is idempotent: unknown/already-removed token is still success.
+  if (!tokenRecord) return;
+
+  await theftTrigger(tokenRecord.sessionId);
+}
