@@ -75,3 +75,40 @@ export async function verifyUserByToken(hashedToken) {
 
 
 }
+
+// find user by email , return the hashed password and emailVerified status
+export async function findUserByEmail(email) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        passwordHash: true,
+        emailVerified: true,
+      },
+    });
+    return user;
+  } catch (error) {
+    // if the user is not found, prisma will return null and we need to handle that in the service layer, not here.
+    throw new databaseError("Database error occurred while finding user by email.");
+  }
+}
+
+export async function findUserById(id) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        emailVerified: true,
+      },
+    });
+    return user;
+  } catch (error) {
+    throw new databaseError("Database error occurred while finding user by ID.");
+  }
+}

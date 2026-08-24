@@ -3,7 +3,17 @@ POST http://localhost:3000/api/auth/signup
 Content-Type: application/json
 
 {
-  "email": "noorribrrahim2006s@gmail.com",
-  "username": "nouri12",
+  "email": "nourhasan1990s@gmail.com",
+  "username": "nouri",
   "password": "TestPassword123!"
 } 
+
+# testing the protected route with the access 
+
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "nourhasan1990s@gmail.com",
+  "password": "TestPassword123!"
+}

@@ -3,19 +3,19 @@ generator client {
   output   = "../generated/prisma"
 }
 
-// Prisma will communicate with a PostgreSQL database.
+// Prisma communicates with PostgreSQL using DATABASE_URL from prisma.config.ts.
 datasource db {
   provider = "postgresql"
 }
 
-// The only roles that can be stored in the users table.
+// Roles allowed in the users table.
 enum UserRole {
   USER
   COACH
   ADMIN
 }
 
-// A registered Spotter account.
+// A registered Spotter account. One user can have multiple active device sessions.
 model User {
   id           String @id @default(uuid()) @db.Uuid
   email        String @unique @db.VarChar(254)
@@ -35,5 +35,61 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // Reverse side of AuthSession.user. This field does not create a database column.
+  authSessions AuthSession[]
+
   @@map("users")
+}
+
+// One authenticated login/device. Revoking it invalidates its complete token family.
+model AuthSession {
+  id       String @id @default(uuid()) @db.Uuid
+  userId   String @map("user_id") @db.Uuid
+  familyId String @unique @default(uuid()) @map("family_id") @db.Uuid
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  // Optional device metadata. Store only bounded, non-sensitive values.
+  userAgent String? @map("user_agent") @db.VarChar(512)
+  ipHash    String? @map("ip_hash") @db.VarChar(64)
+
+  // Deleting a user removes their sessions; deleting a session removes its tokens.
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens RefreshToken[]
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("auth_sessions")
+}
+
+// A hashed opaque refresh token. Raw refresh tokens must never be stored.
+model RefreshToken {
+  id        String @id @default(uuid()) @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+
+  // SHA-256 encoded as hexadecimal is exactly 64 characters.
+  tokenHash String @unique @map("token_hash") @db.VarChar(64)
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  // After rotation, the old token points to the new token that replaced it.
+  replacedByTokenId String? @unique @map("replaced_by_token_id") @db.Uuid
+
+  session AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Self-relation representing: old token -> replacement token.
+  replacedBy RefreshToken? @relation("RefreshTokenRotation", fields: [replacedByTokenId], references: [id], onDelete: SetNull)
+  replaces   RefreshToken? @relation("RefreshTokenRotation")
+
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("refresh_tokens")
 }

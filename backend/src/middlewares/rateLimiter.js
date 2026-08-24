@@ -1,6 +1,14 @@
 import rateLimit from "express-rate-limit";
 
-
+export const rateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  message: {
+    error: "Too many requests. Please try again later.",
+    code: "TOO_MANY_REQUESTS",},
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
 
 // signup rate limiter middleware
 //1. Read the user’s IP address.
@@ -28,4 +36,15 @@ export const verifyEmailRateLimiter = rateLimit({
   },
   standardHeaders: "draft-8",
   legacyHeaders: false,
+});
+
+export const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 login requests per `window` (here, per 15 minutes)
+    message: {
+    error: "Too many login attempts. Please try again later.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });

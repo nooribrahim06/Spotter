@@ -1,21 +1,21 @@
-import "dotenv/config";
+import { env } from "./config/env.js"; // this will automatically validate the environment variables and throw an error if any are missing or invalid
 import { app } from "./app.js";
+import { prisma } from "./lib/prisma.js";
 
-const PORT = process.env.PORT || 5050;
-const HOST = process.env.HOST || "localhost";
-// here where i must start the server, and not in app.js, because app.js is just for defining the app, not starting it.
-// starting the app == connecting to the database, and starting the server, and listening for requests.
-const startServer = async () => {
+async function startServer() {
   try {
-    
-   
-    app.listen(PORT, () => {
-      console.log(`Server running on http://${HOST}:${PORT}`);
+    // 1. Environment was already validated during import
+    // 2. Verify database connection
+    await prisma.$connect();
+
+    // 3. Start accepting requests
+    app.listen(env.PORT, env.HOST, () => {
+      console.log(`Server running on http://${env.HOST}:${env.PORT}`);
     });
   } catch (error) {
-    console.error("Could not start the server:", error.message);
+    console.error("Could not start server:", error.message);
     process.exit(1);
   }
-};
+}
 
 startServer();
