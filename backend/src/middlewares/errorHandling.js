@@ -1,8 +1,9 @@
 export class AppError extends Error {
-    constructor(message, statusCode , code) {
+    constructor(message, statusCode , code, details = null) {
         super(message);
         this.statusCode = statusCode;
         this.code = code;
+        this.details = details;
         this.isOperational = true; // Mark this error as operational (expected)
         Error.captureStackTrace(
              this,             // object receiving the .stack property
@@ -18,8 +19,8 @@ export class AppError extends Error {
 // 1.3. nodemailer failed to send email
 // 1.4. the repo failed to create the user <database error>
 export class invalidSchemaError extends AppError {
-    constructor(message) {
-        super(message, 400, "INVALID_SCHEMA"); // 400 Bad Request
+    constructor(details) {
+        super("Validation failed.", 400, "INVALID_SCHEMA", details); // 400 Bad Request
     }
 }
 // class rateLimitError extends AppError {
@@ -80,5 +81,11 @@ export class InvalidAccessTokenError extends AppError {
 export class theftTriggerError extends AppError {
   constructor(message = "Refresh token has already been used. Possible token theft detected. All sessions have been revoked.") {
     super(message, 401, "REFRESH_TOKEN_THEFT_DETECTED");
+  }
+}
+
+export class RefreshTokenRaceError extends AppError {
+  constructor(message = "The session was refreshed by another request. Please retry.") {
+    super(message, 409, "REFRESH_TOKEN_ALREADY_ROTATED");
   }
 }

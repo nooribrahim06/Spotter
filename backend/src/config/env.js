@@ -10,6 +10,14 @@ const jwtSecret = z
     "Secret must contain at least 32 bytes"
   );
 
+const durationInDays = (defaultValue) =>
+  z
+    .string()
+    .trim()
+    .regex(/^\d+d$/, "Duration must use days, for example 7d")
+    .default(defaultValue)
+    .transform((value) => Number(value.slice(0, -1)));
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]),
@@ -24,8 +32,13 @@ const envSchema = z
     FRONTEND_URL: z.string().url(),
 
     ACCESS_TOKEN_SECRET: jwtSecret,
-
-    
+    ACCESS_TOKEN_EXPIRATION: z
+      .string()
+      .trim()
+      .regex(/^\d+(?:ms|s|m|h|d)$/, "Invalid access token expiration")
+      .default("15m"),
+    REFRESH_TOKEN_EXPIRATION: durationInDays("7d"),
+    SESSION_EXPIRATION: durationInDays("30d"),
 
     EMAIL_USER: z.string().email(),
     EMAIL_APP_PASSWORD: z.string().min(1),

@@ -112,3 +112,28 @@ export async function findUserById(id) {
     throw new databaseError("Database error occurred while finding user by ID.");
   }
 }
+
+export async function replaceVerificationToken({
+  userId,
+  verifyToken,
+  verifyTokenExpiresAt,
+}) {
+  try {
+    const result = await prisma.user.updateMany({
+      where: {
+        id: userId,
+        emailVerified: false,
+      },
+      data: {
+        verifyToken,
+        verifyTokenExpiresAt,
+      },
+    });
+
+    return result.count;
+  } catch {
+    throw new databaseError(
+      "Database error occurred while replacing the verification token."
+    );
+  }
+}

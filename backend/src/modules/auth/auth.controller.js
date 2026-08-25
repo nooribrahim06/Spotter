@@ -1,7 +1,6 @@
 import * as authService from "./auth.service.js";
 import { env } from "../../config/env.js";
-
-
+import { InvalidCredentialsError } from "../../middlewares/errorHandling.js";
 // we will use this as a header for the refresh token cookie, so that we can set the cookie options in one place and use it in multiple places.
 // the base will be needed for clearing the cookie, and the options will be needed for setting the cookie.
 const refreshCookieBaseOptions = {
@@ -13,7 +12,7 @@ const refreshCookieBaseOptions = {
 
 const refreshCookieOptions = {
   ...refreshCookieBaseOptions,
-  maxAge: 7 * 24 * 60 * 60 * 1000,
+  maxAge: env.REFRESH_TOKEN_EXPIRATION * 24 * 60 * 60 * 1000,
 };
 
 
@@ -27,6 +26,14 @@ export async function signupController(req, res) {
 
 export async function verifyController(req, res) {
   const result = await authService.verifyEmail(req.validatedBody.token);
+  return res.status(200).json(result);
+}
+
+export async function resendVerificationController(req, res) {
+  const result = await authService.resendVerificationEmail(
+    req.validatedBody.email
+  );
+
   return res.status(200).json(result);
 }
 
@@ -55,18 +62,18 @@ export async function refreshController(req, res, next) {
 
   // Without this, hashRefreshToken(undefined) may crash.
   if (!refreshToken) {
-    return res.status(401).json({
-      message: "Refresh token is missing",
-    });
+    return next(new InvalidCredentialsError("Invalid or expired session."));
   }
   
 
   try {
     const result = await authService.refreshToken(refreshToken);
 
+    res.set("Cache-Control", "no-store");
     res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
 
     return res.json({
+      user: result.user,
       accessToken: result.accessToken,
     });
   } catch (error) {

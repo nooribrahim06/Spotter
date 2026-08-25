@@ -38,6 +38,17 @@ export const verifyEmailRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+export const resendVerificationRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    error: "Too many resend attempts. Please try again later.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // Limit each IP to 10 login requests per `window` (here, per 15 minutes)

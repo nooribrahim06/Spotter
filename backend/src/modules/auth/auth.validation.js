@@ -6,7 +6,11 @@ export const signupSchema = z.object({
 });
 
 export const verifySchema = z.object({
-  token: z.string().length(64), // 64-char hex string
+  token: z.string().regex(/^[a-f0-9]{64}$/i), // 64-char hex string
+});
+
+export const resendVerificationSchema = z.object({
+  email: z.string().email(),
 });
 // to simplify we can make it only for email now , username can be added later if needed
 export const loginSchema = z.object({

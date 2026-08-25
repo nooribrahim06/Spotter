@@ -1,9 +1,26 @@
 import express from "express";
-import path from "node:path";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import cookieParser from "cookie-parser";
+import cors from "cors";
+import { env } from "./config/env.js";
 export const app = express();
+
+app.use(cors({
+  origin(requestOrigin, callback) {
+    if (!requestOrigin || requestOrigin === env.FRONTEND_URL) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 app.use(cookieParser());
+
+
 
 // MiddleWares 
 // 1. rate limiter 
@@ -22,11 +39,17 @@ app.use((err, req, res, next) => {
     // and we will get ERR_HTTP_HEADERS_SENT error if we try to send a response after the header is sent.
   }
 
-  console.error(err);
-
   const invalidJson = err.type === "entity.parse.failed";
   const toolarge = err.type === "entity.too.large";
   const isOperational = err.isOperational === true;
+
+  if (env.NODE_ENV !== "test") {
+    if (isOperational) {
+      console.warn(`[${err.code}] ${err.message}`);
+    } else {
+      console.error(err);
+    }
+  }
 
   const statusCode = invalidJson
     ? 400
@@ -52,8 +75,14 @@ app.use((err, req, res, next) => {
         ? err.message
         : "Internal Server Error";
 
-  return res.status(statusCode).json({
+  const responseBody = {
     error: message,
     code,
-  });
+  };
+
+  if (isOperational && err.details !== null) {
+    responseBody.details = err.details;
+  }
+
+  return res.status(statusCode).json(responseBody);
 });

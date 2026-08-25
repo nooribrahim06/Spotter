@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
+import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 
 
@@ -7,6 +8,7 @@ import { createUser } from "./user.repository.js";
 import { findUserByEmail } from "./user.repository.js";
 import { findUserById } from "./user.repository.js";
 import { verifyUserByToken } from "./user.repository.js";
+import { replaceVerificationToken } from "./user.repository.js";
 
 import nodemailer from "nodemailer";
 import { emailSendError } from "../../middlewares/errorHandling.js";
@@ -14,6 +16,7 @@ import { emailSendError } from "../../middlewares/errorHandling.js";
 import { invalidTokenError } from "../../middlewares/errorHandling.js";
 import { InvalidCredentialsError } from "../../middlewares/errorHandling.js";
 import { theftTriggerError } from "../../middlewares/errorHandling.js";
+import { RefreshTokenRaceError } from "../../middlewares/errorHandling.js";
 
 
 import * as jwtService from "./auth.tokens.js"; // Import the JWT service for token generation
@@ -22,15 +25,44 @@ import { theftTrigger } from "../../helpers/theftTrigger.js";
 import * as RefreshTokenRepo from "./repositories/refreshToken.repository.js";
 import * as AuthSessionRepo from "./repositories/authSession.repository.js";
 
+const REFRESH_RACE_GRACE_MS = 5_000;
 
 // Configure Nodemailer for Gmail
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER, // e.g., 'your.email@gmail.com'
-        pass: process.env.EMAIL_APP_PASSWORD // The 16-character app password
+        user: env.EMAIL_USER,
+        pass: env.EMAIL_APP_PASSWORD
     }
 });
+
+const RESEND_VERIFICATION_RESPONSE = {
+    message: "If the account exists and is not verified, a verification email has been sent.",
+};
+
+function createEmailVerificationToken() {
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto
+        .createHash("sha256")
+        .update(rawToken)
+        .digest("hex");
+
+    return {
+        rawToken,
+        hashedToken,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    };
+}
+
+async function sendVerificationEmail(email, rawToken) {
+    return transporter.sendMail({
+        from: `"Spotter" <${env.EMAIL_USER}>`,
+        to: email,
+        subject: "Verify your email for Spotter",
+        text: `Click the link to verify your email: ${env.FRONTEND_URL}/verify-email?token=${rawToken}`,
+        html: `<p>Welcome to Spotter!</p><p>Click <a href="${env.FRONTEND_URL}/verify-email?token=${rawToken}">here</a> to verify your email.</p>`
+    });
+}
 
 //  signup 
 // Receives the validated body from the controller (email, username, password).
@@ -57,40 +89,24 @@ export async function signup({ email, username, password }) {
     // crypto.randomBytes(32) → 32 random bytes → 64-char hex string.
     // This is the "raw" token we'll put inside the verification link
     // that we email to the user.
-    const rawToken = crypto.randomBytes(32).toString("hex");
-
-    // We do NOT store the raw token in the DB.  If the DB leaks, an
-    // attacker could verify any account.  Instead we store a SHA-256 hash.
-    // SHA-256 is fine here (unlike passwords) because the input is already
-    // 256 bits of pure randomness — it can't be brute-forced.
-    // actually the attacker wil need 2^256 attempts to brute force the token, which is infeasible.
-    const hashedToken = crypto
-        .createHash("sha256")
-        .update(rawToken)
-        .digest("hex"); // 64-char hex string → fits VarChar(64)
-
-    // The token expires in 24 hours.
-    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const verificationToken = createEmailVerificationToken();
 
     // 4. Save the user to the database 
     // this is a repo layer responsibility not a service layer responsibility
-    const user = await createUser({
+    await createUser({
         email: normalizedEmail,
         username: normalizedUsername,
         passwordHash,
-        verifyToken: hashedToken,
-        verifyTokenExpiresAt: tokenExpiresAt,
+        verifyToken: verificationToken.hashedToken,
+        verifyTokenExpiresAt: verificationToken.expiresAt,
     });
 
     // 5. Send verification email 
     try {
-        const info = await transporter.sendMail({
-            from: `"Spotter" <${process.env.EMAIL_USER}>`,
-            to: normalizedEmail,
-            subject: 'Verify your email for Spotter',
-            text: `Click the link to verify your email: ${process.env.FRONTEND_URL}/verify-email?token=${rawToken}`,
-            html: `<p>Welcome to Spotter!</p><p>Click <a href="${process.env.FRONTEND_URL}/verify-email?token=${rawToken}">here</a> to verify your email.</p>`
-        });
+        const info = await sendVerificationEmail(
+            normalizedEmail,
+            verificationToken.rawToken
+        );
         console.log("✅ Verification email sent! ID:", info.messageId);
     } catch (error) {
         console.error("❌ Failed to send verification email:", error);
@@ -101,6 +117,39 @@ export async function signup({ email, username, password }) {
     return {
         message: "User created successfully. Check your email to verify your account.",
     };
+}
+
+export async function resendVerificationEmail(email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await findUserByEmail(normalizedEmail);
+
+    // Use the same response for missing, verified, and eligible accounts to
+    // avoid disclosing whether an email address is registered.
+    if (!user || user.emailVerified) {
+        return RESEND_VERIFICATION_RESPONSE;
+    }
+
+    const verificationToken = createEmailVerificationToken();
+    const updatedCount = await replaceVerificationToken({
+        userId: user.id,
+        verifyToken: verificationToken.hashedToken,
+        verifyTokenExpiresAt: verificationToken.expiresAt,
+    });
+
+    if (updatedCount === 0) {
+        return RESEND_VERIFICATION_RESPONSE;
+    }
+
+    try {
+        await sendVerificationEmail(normalizedEmail, verificationToken.rawToken);
+    } catch (error) {
+        console.error("Failed to resend verification email:", error);
+        throw new emailSendError(
+            "Failed to send verification email. Please try again later."
+        );
+    }
+
+    return RESEND_VERIFICATION_RESPONSE;
 }
 
 
@@ -153,7 +202,7 @@ export async function login({ email, password , userAgent, ip }) {
         throw new InvalidCredentialsError();
     }
     if(user.emailVerified === false) {
-        throw new InvalidCredentialsError("Email not verified. Please check your email for the verification link.");
+        throw new InvalidCredentialsError();
     }
     
     //============Authentication successful, now we need to create a session and generate tokens for the user.================
@@ -166,8 +215,8 @@ export async function login({ email, password , userAgent, ip }) {
     const refreshTokenHashed = jwtService.hashRefreshToken(refreshToken);
     const ipHash = crypto.createHash("sha256").update(ip).digest("hex");
     
-    const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
-    const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    const refreshExpiresAt = new Date(Date.now() + env.REFRESH_TOKEN_EXPIRATION * 24 * 60 * 60 * 1000); // 7 days from now
+    const sessionExpiresAt = new Date(Date.now() + env.SESSION_EXPIRATION * 24 * 60 * 60 * 1000); // 30 days from now
 
 
     const sessionId = await prisma.$transaction(async (cl) => {
@@ -221,18 +270,24 @@ const now = new Date();
 if (
   !refreshTokenRecord ||
   refreshTokenRecord.expiresAt <= now ||
-  refreshTokenRecord.consumedAt !== null ||
   refreshTokenRecord.revokedAt !== null
 ) {
-    if(refreshTokenRecord && refreshTokenRecord.consumedAt !== null) {
-        // this will trigger a theft detection mechanism
-        // and we will revoke the session and all refresh tokens associated with it.
-        await theftTrigger(refreshTokenRecord.sessionId);
-        throw new theftTriggerError("Refresh token has already been used. Possible token theft detected. All sessions have been revoked. Please log in again.");
-    }
     throw new InvalidCredentialsError(
     "Invalid or expired refresh token."
   );
+}
+
+if (refreshTokenRecord.consumedAt !== null) {
+    const reuseAgeMs = now.getTime() - refreshTokenRecord.consumedAt.getTime();
+
+    // A very recent reuse can be caused by two legitimate browser requests
+    // racing. The client may retry with the cookie set by the winning request.
+    if (reuseAgeMs >= 0 && reuseAgeMs <= REFRESH_RACE_GRACE_MS) {
+        throw new RefreshTokenRaceError();
+    }
+
+    await theftTrigger(refreshTokenRecord.sessionId);
+    throw new theftTriggerError("Refresh token has already been used. Possible token theft detected. All sessions have been revoked. Please log in again.");
 }
 
     const sessionId = refreshTokenRecord.sessionId;
@@ -251,7 +306,7 @@ if (
     const newRefreshToken = jwtService.generateRefreshToken();
     const newRefreshTokenHashed = jwtService.hashRefreshToken(newRefreshToken);
     const refreshWindowEndsAt = new Date(
-        Date.now() + 7 * 24 * 60 * 60 * 1000
+        Date.now() + env.REFRESH_TOKEN_EXPIRATION * 24 * 60 * 60 * 1000
     );
     // A refresh token must never remain valid after its session expires.
     const newRefreshExpiresAt = new Date(
@@ -268,9 +323,7 @@ if (
 
             if (result.count !== 1) {
                 // Another request consumed this token after our initial lookup.
-                throw new theftTriggerError(
-                    "Refresh token reuse detected. This session has been revoked. Please log in again."
-                );
+                throw new RefreshTokenRaceError();
             }
 
             const newRefreshTokenId = await RefreshTokenRepo.createRefreshToken({
@@ -296,7 +349,11 @@ if (
     }
 
     return {
-        user,
+        user: {
+            id: user.id,
+            email: user.email,
+            username: user.username
+        },
         accessToken: newAccessToken,
         refreshToken: newRefreshToken
     };
