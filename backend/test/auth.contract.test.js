@@ -23,6 +23,9 @@ const { InvalidCredentialsError } = await import(
 const { createVerifyEmail } = await import(
   "../src/emails-temp/verifyUremail.js"
 );
+const { encryptQueueToken, decryptQueueToken } = await import(
+  "../src/queues/queueCrypto.js"
+);
 
 let server;
 let baseUrl;
@@ -85,6 +88,21 @@ test("verification email escapes usernames and uses a CID mascot", () => {
     )
   );
   assert.equal(html.includes("https://http://"), false);
+});
+
+test("verification tokens are authenticated and encrypted in queue payloads", () => {
+  const rawToken = "a".repeat(64);
+  const encryptedToken = encryptQueueToken(rawToken);
+
+  assert.equal(encryptedToken.includes(rawToken), false);
+  assert.equal(decryptQueueToken(encryptedToken), rawToken);
+
+  const parts = encryptedToken.split(".");
+  const ciphertext = Buffer.from(parts[2], "base64url");
+  ciphertext[0] ^= 1;
+  parts[2] = ciphertext.toString("base64url");
+
+  assert.throws(() => decryptQueueToken(parts.join(".")));
 });
 
 test("refresh without a cookie follows the standard error contract", async () => {

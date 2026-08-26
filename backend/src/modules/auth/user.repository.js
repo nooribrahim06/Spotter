@@ -122,13 +122,39 @@ export async function findUserById(id) {
   }
 }
 
+export async function findPendingVerificationEmailRecipient({
+  userId,
+  verificationTokenHash,
+}) {
+  try {
+    return await prisma.user.findFirst({
+      where: {
+        id: userId,
+        emailVerified: false,
+        verifyToken: verificationTokenHash,
+        verifyTokenExpiresAt: {
+          gt: new Date(),
+        },
+      },
+      select: {
+        email: true,
+        username: true,
+      },
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while finding a verification email recipient."
+    );
+  }
+}
+
 export async function replaceVerificationToken({
   userId,
   verifyToken,
   verifyTokenExpiresAt,
-}) {
+}, db = prisma) {
   try {
-    const result = await prisma.user.updateMany({
+    const result = await db.user.updateMany({
       where: {
         id: userId,
         emailVerified: false,

@@ -1,12 +1,10 @@
 import crypto from "node:crypto";
-import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 import {fromPrisma} from 'pg-boss';
 import { boss, VERIFICATION_EMAIL_QUEUE } from "../../queues/queue.js";
-
-import { createVerifyEmail } from "../../emails-temp/verifyUremail.js";
+import { encryptQueueToken } from "../../queues/queueCrypto.js";
 
 import { createUser } from "./user.repository.js";
 import { findUserByEmail } from "./user.repository.js";
@@ -14,9 +12,6 @@ import { findUserById } from "./user.repository.js";
 import { verifyUserByToken } from "./user.repository.js";
 import { replaceVerificationToken } from "./user.repository.js";
 
-
-import nodemailer from "nodemailer";
-import { emailSendError } from "../../middlewares/errorHandling.js";
 
 import { invalidTokenError } from "../../middlewares/errorHandling.js";
 import { InvalidCredentialsError } from "../../middlewares/errorHandling.js";
@@ -32,18 +27,6 @@ import * as AuthSessionRepo from "./repositories/authSession.repository.js";
 import { revokeAllSessionsForUser } from "./repositories/authSessionrefreshToken.repository.js";
 
 const REFRESH_RACE_GRACE_MS = 5_000;
-const VERIFICATION_EMAIL_MASCOT_PATH = fileURLToPath(
-    new URL("../../emails-temp/assets/01_idle_hello_384x512.png", import.meta.url)
-);
-
-// Configure Nodemailer for Gmail
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: env.EMAIL_USER,
-        pass: env.EMAIL_APP_PASSWORD
-    }
-});
 
 const RESEND_VERIFICATION_RESPONSE = {
     message: "If the account exists and is not verified, a verification email has been sent.",
@@ -61,23 +44,6 @@ function createEmailVerificationToken() {
         hashedToken,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     };
-}
-
-export async function sendVerificationEmail({email, rawToken, username = "User"}) {
-    return transporter.sendMail({
-        from: `"Spotter" <${env.EMAIL_USER}>`,
-        to: email,
-        subject: "Verify your email for Spotter",
-        text: `Click the link to verify your email: ${env.FRONTEND_URL}/verify-email?token=${rawToken}`,
-        html: createVerifyEmail(username, rawToken),
-        attachments: [
-            {
-                filename: "spotter-mascot.png",
-                path: VERIFICATION_EMAIL_MASCOT_PATH,
-                cid: "spotter-verification-mascot",
-            },
-        ],
-    });
 }
 
 //  signup 
@@ -106,7 +72,11 @@ export async function signup({ email, username, password }) {
     // This is the "raw" token we'll put inside the verification link
     // that we email to the user.
     const verificationToken = createEmailVerificationToken();
-    // 4 & 5 are now one trascation for atomicity, so if one fails, the other is rolled back.
+    const encryptedToken = encryptQueueToken(verificationToken.rawToken);
+
+    // The user row and the queue job are inserted in one transaction, so they
+    // commit or roll back together. The worker sends the email later; delivery
+    // itself is intentionally not part of this database transaction.
     await prisma.$transaction(async (tx) => {
     const user = await createUser({
         email: normalizedEmail,
@@ -120,7 +90,8 @@ export async function signup({ email, username, password }) {
     VERIFICATION_EMAIL_QUEUE,
     {
       userId: user.id,
-      rawToken: verificationToken.rawToken,
+      encryptedToken,
+      verificationTokenHash: verificationToken.hashedToken,
     },
     {
       db: fromPrisma(tx),
@@ -144,28 +115,31 @@ export async function resendVerificationEmail(email) {
     }
 
     const verificationToken = createEmailVerificationToken();
-    const updatedCount = await replaceVerificationToken({
+    const encryptedToken = encryptQueueToken(verificationToken.rawToken);
+    await prisma.$transaction(async (tx) => {
+        const updatedCount = await replaceVerificationToken({
         userId: user.id,
         verifyToken: verificationToken.hashedToken,
         verifyTokenExpiresAt: verificationToken.expiresAt,
-    });
+    }, tx);
 
     if (updatedCount === 0) {
         return RESEND_VERIFICATION_RESPONSE;
     }
 
-    try {
-        await sendVerificationEmail({
-            email: normalizedEmail,
-            rawToken: verificationToken.rawToken,
-            username: user.username
-        });
-    } catch (error) {
-        console.error("Failed to resend verification email:", error);
-        throw new emailSendError(
-            "Failed to send verification email. Please try again later."
-        );
+    await boss.send(
+    VERIFICATION_EMAIL_QUEUE,
+    {
+      userId: user.id,
+      encryptedToken,
+      verificationTokenHash: verificationToken.hashedToken,
+
+    },
+    {
+      db: fromPrisma(tx),
     }
+  );
+    });
 
     return RESEND_VERIFICATION_RESPONSE;
 }
