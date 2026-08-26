@@ -20,6 +20,9 @@ const { createAccessToken, verifyAccessToken } = await import(
 const { InvalidCredentialsError } = await import(
   "../src/middlewares/errorHandling.js"
 );
+const { createVerifyEmail } = await import(
+  "../src/emails-temp/verifyUremail.js"
+);
 
 let server;
 let baseUrl;
@@ -62,6 +65,28 @@ test("credential errors remain generic", () => {
   assert.equal(error.message, "Invalid email or password.");
 });
 
+test("verification email escapes usernames and uses a CID mascot", () => {
+  const token = "a".repeat(64);
+  const html = createVerifyEmail(
+    `<script>alert("x")</script>&'`,
+    token
+  );
+
+  assert.equal(html.includes("<script>"), false);
+  assert.ok(
+    html.includes(
+      "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;&amp;&#39;"
+    )
+  );
+  assert.ok(html.includes('src="cid:spotter-verification-mascot"'));
+  assert.ok(
+    html.includes(
+      `${process.env.FRONTEND_URL}/verify-email?token=${token}`
+    )
+  );
+  assert.equal(html.includes("https://http://"), false);
+});
+
 test("refresh without a cookie follows the standard error contract", async () => {
   const response = await fetch(`${baseUrl}/api/auth/refresh`, {
     method: "POST",
@@ -73,6 +98,19 @@ test("refresh without a cookie follows the standard error contract", async () =>
     error: "Invalid or expired session.",
     code: "INVALID_CREDENTIALS",
   });
+});
+
+test("logout all without a cookie remains idempotent and clears it", async () => {
+  const response = await fetch(`${baseUrl}/api/auth/logout-all`, {
+    method: "POST",
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body, {
+    message: "Logged out of all sessions successfully.",
+  });
+  assert.match(response.headers.get("set-cookie"), /^refreshToken=;/);
 });
 
 test("validation errors expose only field names and public messages", async () => {

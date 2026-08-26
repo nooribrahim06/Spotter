@@ -1,4 +1,5 @@
 import { findUserById } from "../modules/auth/user.repository.js";
+import { findSessionById } from "../modules/auth/repositories/authSession.repository.js";
 import { verifyAccessToken } from "../modules/auth/auth.tokens.js";
 import { InvalidAccessTokenError } from "./errorHandling.js";
 /*
@@ -35,9 +36,20 @@ export async function authenticateToken(req, res, next) {
   }
 
   // This remains outside the JWT catch so database errors remain 500 errors.
-  const user = await findUserById(decoded.sub);
+  const [user, session] = await Promise.all([
+    findUserById(decoded.sub),
+    findSessionById(decoded.sid),
+  ]);
+  const now = new Date();
 
-  if (!user || !user.emailVerified) {
+  if (
+    !user ||
+    !user.emailVerified ||
+    !session ||
+    session.userId !== user.id ||
+    session.expiresAt <= now ||
+    session.revokedAt !== null
+  ) {
     throw new InvalidAccessTokenError();
   }
 

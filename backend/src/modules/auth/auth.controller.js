@@ -105,3 +105,19 @@ export async function logoutController(req, res) {
     message: "Logged out successfully.",
   });
 }
+
+export async function logoutAllController(req, res) {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (refreshToken) {
+      await authService.logoutAllSessions(refreshToken);
+    }
+  } finally {
+    res.clearCookie("refreshToken", refreshCookieBaseOptions);
+  }
+
+  return res.status(200).json({
+    message: "Logged out of all sessions successfully.",
+  });
+}

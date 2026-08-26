@@ -1,14 +1,17 @@
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 
+import { createVerifyEmail } from "../../emails-temp/verifyUremail.js";
 
 import { createUser } from "./user.repository.js";
 import { findUserByEmail } from "./user.repository.js";
 import { findUserById } from "./user.repository.js";
 import { verifyUserByToken } from "./user.repository.js";
 import { replaceVerificationToken } from "./user.repository.js";
+
 
 import nodemailer from "nodemailer";
 import { emailSendError } from "../../middlewares/errorHandling.js";
@@ -24,8 +27,12 @@ import { theftTrigger } from "../../helpers/theftTrigger.js";
 
 import * as RefreshTokenRepo from "./repositories/refreshToken.repository.js";
 import * as AuthSessionRepo from "./repositories/authSession.repository.js";
+import { revokeAllSessionsForUser } from "./repositories/authSessionrefreshToken.repository.js";
 
 const REFRESH_RACE_GRACE_MS = 5_000;
+const VERIFICATION_EMAIL_MASCOT_PATH = fileURLToPath(
+    new URL("../../emails-temp/assets/01_idle_hello_384x512.png", import.meta.url)
+);
 
 // Configure Nodemailer for Gmail
 const transporter = nodemailer.createTransport({
@@ -54,13 +61,20 @@ function createEmailVerificationToken() {
     };
 }
 
-async function sendVerificationEmail(email, rawToken) {
+async function sendVerificationEmail(email, rawToken, username = "User") {
     return transporter.sendMail({
         from: `"Spotter" <${env.EMAIL_USER}>`,
         to: email,
         subject: "Verify your email for Spotter",
         text: `Click the link to verify your email: ${env.FRONTEND_URL}/verify-email?token=${rawToken}`,
-        html: `<p>Welcome to Spotter!</p><p>Click <a href="${env.FRONTEND_URL}/verify-email?token=${rawToken}">here</a> to verify your email.</p>`
+        html: createVerifyEmail(username, rawToken),
+        attachments: [
+            {
+                filename: "spotter-mascot.png",
+                path: VERIFICATION_EMAIL_MASCOT_PATH,
+                cid: "spotter-verification-mascot",
+            },
+        ],
     });
 }
 
@@ -105,7 +119,8 @@ export async function signup({ email, username, password }) {
     try {
         const info = await sendVerificationEmail(
             normalizedEmail,
-            verificationToken.rawToken
+            verificationToken.rawToken,
+            normalizedUsername
         );
         console.log("✅ Verification email sent! ID:", info.messageId);
     } catch (error) {
@@ -141,7 +156,7 @@ export async function resendVerificationEmail(email) {
     }
 
     try {
-        await sendVerificationEmail(normalizedEmail, verificationToken.rawToken);
+        await sendVerificationEmail(normalizedEmail, verificationToken.rawToken, user.username);
     } catch (error) {
         console.error("Failed to resend verification email:", error);
         throw new emailSendError(
@@ -368,4 +383,34 @@ export async function logout(rawRefreshToken) {
   if (!tokenRecord) return;
 
   await theftTrigger(tokenRecord.sessionId);
+}
+
+
+export async function logoutAllSessions(rawRefreshToken) {
+    const tokenHash = jwtService.hashRefreshToken(rawRefreshToken);
+    const tokenRecord = await RefreshTokenRepo.findRefreshTokenByHash(tokenHash);
+    const now = new Date();
+
+    // Keep logout idempotent, but never let an old, stolen token revoke a
+    // user's current sessions.
+    if (
+        !tokenRecord ||
+        tokenRecord.expiresAt <= now ||
+        tokenRecord.revokedAt !== null ||
+        tokenRecord.consumedAt !== null
+    ) {
+        return;
+    }
+
+    const session = await AuthSessionRepo.findSessionById(tokenRecord.sessionId);
+
+    if (
+        !session ||
+        session.expiresAt <= now ||
+        session.revokedAt !== null
+    ) {
+        return;
+    }
+
+    await revokeAllSessionsForUser(session.userId);
 }

@@ -22,6 +22,8 @@ import { loginController } from "./auth.controller.js";
 import { refreshController } from "./auth.controller.js";
 import { logoutController } from "./auth.controller.js";
 import { resendVerificationController } from "./auth.controller.js";
+import { logoutAllController } from "./auth.controller.js";
+
 
 export const authRoutes = express.Router();
 authRoutes.post("/signup",
@@ -70,9 +72,9 @@ authRoutes.post("/refresh" ,
   refreshController
 );
 
-authRoutes.post("/logout",logoutController
+authRoutes.post("/logout", rateLimiter, logoutController
 )
-
+authRoutes.post("/logout-all", rateLimiter, logoutAllController)
 
 
 authRoutes.get(
