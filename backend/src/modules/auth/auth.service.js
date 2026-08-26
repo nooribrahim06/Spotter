@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
+import {fromPrisma} from 'pg-boss';
+import { boss, VERIFICATION_EMAIL_QUEUE } from "../../queues/queue.js";
 
 import { createVerifyEmail } from "../../emails-temp/verifyUremail.js";
 
@@ -61,7 +63,7 @@ function createEmailVerificationToken() {
     };
 }
 
-async function sendVerificationEmail(email, rawToken, username = "User") {
+export async function sendVerificationEmail({email, rawToken, username = "User"}) {
     return transporter.sendMail({
         from: `"Spotter" <${env.EMAIL_USER}>`,
         to: email,
@@ -104,30 +106,27 @@ export async function signup({ email, username, password }) {
     // This is the "raw" token we'll put inside the verification link
     // that we email to the user.
     const verificationToken = createEmailVerificationToken();
-
-    // 4. Save the user to the database 
-    // this is a repo layer responsibility not a service layer responsibility
-    await createUser({
+    // 4 & 5 are now one trascation for atomicity, so if one fails, the other is rolled back.
+    await prisma.$transaction(async (tx) => {
+    const user = await createUser({
         email: normalizedEmail,
         username: normalizedUsername,
         passwordHash,
         verifyToken: verificationToken.hashedToken,
         verifyTokenExpiresAt: verificationToken.expiresAt,
-    });
+    }, tx);
 
-    // 5. Send verification email 
-    try {
-        const info = await sendVerificationEmail(
-            normalizedEmail,
-            verificationToken.rawToken,
-            normalizedUsername
-        );
-        console.log("✅ Verification email sent! ID:", info.messageId);
-    } catch (error) {
-        console.error("❌ Failed to send verification email:", error);
-        throw new emailSendError("Failed to send verification email. Please try again later.");
+  await boss.send(
+    VERIFICATION_EMAIL_QUEUE,
+    {
+      userId: user.id,
+      rawToken: verificationToken.rawToken,
+    },
+    {
+      db: fromPrisma(tx),
     }
-
+  );
+});
     // 6. Return response to controller
     return {
         message: "User created successfully. Check your email to verify your account.",
@@ -156,7 +155,11 @@ export async function resendVerificationEmail(email) {
     }
 
     try {
-        await sendVerificationEmail(normalizedEmail, verificationToken.rawToken, user.username);
+        await sendVerificationEmail({
+            email: normalizedEmail,
+            rawToken: verificationToken.rawToken,
+            username: user.username
+        });
     } catch (error) {
         console.error("Failed to resend verification email:", error);
         throw new emailSendError(

@@ -3,6 +3,7 @@ import { authRoutes } from "./modules/auth/auth.routes.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { env } from "./config/env.js";
+
 export const app = express();
 
 app.use(cors({

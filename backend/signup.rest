@@ -4,16 +4,24 @@ Content-Type: application/json
 
 {
   "email": "nourhasan1990s@gmail.com",
-  "username": "nouri",
+  "username": "nourirr",
   "password": "TestPassword123!"
 } 
 
-# testing the protected route with the access 
 
+### Login
 POST http://localhost:3000/api/auth/login
 Content-Type: application/json
 
 {
   "email": "nourhasan1990s@gmail.com",
   "password": "TestPassword123!"
+}
+
+### Refresh Token 
+POST http://localhost:3000/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "50baf5d34adbc380fb0a2e53419694ff34cc9b573bffaff587f143892337c98c"
 }

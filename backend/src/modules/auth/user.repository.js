@@ -6,9 +6,18 @@ import { DuplicateUserError } from "../../middlewares/errorHandling.js";
  * Returns the created user object (excluding sensitive fields).
  * Throws a formatted error if email or username already exists.
  */
-export async function createUser({ email, username, passwordHash, verifyToken, verifyTokenExpiresAt }) {
+export async function createUser(
+  {
+    email,
+    username,
+    passwordHash,
+    verifyToken,
+    verifyTokenExpiresAt,
+  },
+  db = prisma
+) {
   try {
-    const user = await prisma.user.create({
+    const user = await db.user.create({
       data: {
         email,
         username,
