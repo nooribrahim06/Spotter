@@ -71,6 +71,18 @@ export class InvalidCredentialsError extends AppError {
     );
   }
 }
+
+export class InvalidRefreshTokenError extends AppError {
+  constructor(message = "Invalid or expired session.") {
+    super(message, 401, "INVALID_REFRESH_TOKEN");
+  }
+}
+
+export class InvalidSessionError extends AppError {
+  constructor(message = "Invalid or expired session.") {
+    super(message, 401, "INVALID_SESSION");
+  }
+}
 // =========== JWT Errors ===========
 export class InvalidAccessTokenError extends AppError {
   constructor(message = "Authentication required.") {

@@ -15,6 +15,8 @@ import { replaceVerificationToken } from "./user.repository.js";
 
 import { invalidTokenError } from "../../middlewares/errorHandling.js";
 import { InvalidCredentialsError } from "../../middlewares/errorHandling.js";
+import { InvalidRefreshTokenError } from "../../middlewares/errorHandling.js";
+import { InvalidSessionError } from "../../middlewares/errorHandling.js";
 import { theftTriggerError } from "../../middlewares/errorHandling.js";
 import { RefreshTokenRaceError } from "../../middlewares/errorHandling.js";
 
@@ -264,9 +266,7 @@ if (
   refreshTokenRecord.expiresAt <= now ||
   refreshTokenRecord.revokedAt !== null
 ) {
-    throw new InvalidCredentialsError(
-    "Invalid or expired refresh token."
-  );
+    throw new InvalidRefreshTokenError();
 }
 
 if (refreshTokenRecord.consumedAt !== null) {
@@ -285,13 +285,13 @@ if (refreshTokenRecord.consumedAt !== null) {
     const sessionId = refreshTokenRecord.sessionId;
     const session = await AuthSessionRepo.findSessionById(sessionId);
     if (!session || session.expiresAt < now || session.revokedAt !== null) {
-        throw new InvalidCredentialsError("Invalid or expired session.");
+        throw new InvalidSessionError();
     }
 
     const userId = session.userId;
     const user = await findUserById(userId);
     if (!user) {
-        throw new InvalidCredentialsError("User not found.");
+        throw new InvalidSessionError();
     }
     const newAccessToken = jwtService.createAccessToken({ userId, sessionId });
 

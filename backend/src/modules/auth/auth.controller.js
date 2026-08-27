@@ -1,6 +1,6 @@
 import * as authService from "./auth.service.js";
 import { env } from "../../config/env.js";
-import { InvalidCredentialsError } from "../../middlewares/errorHandling.js";
+import { InvalidSessionError } from "../../middlewares/errorHandling.js";
 // we will use this as a header for the refresh token cookie, so that we can set the cookie options in one place and use it in multiple places.
 // the base will be needed for clearing the cookie, and the options will be needed for setting the cookie.
 const refreshCookieBaseOptions = {
@@ -62,7 +62,7 @@ export async function refreshController(req, res, next) {
 
   // Without this, hashRefreshToken(undefined) may crash.
   if (!refreshToken) {
-    return next(new InvalidCredentialsError("Invalid or expired session."));
+    return next(new InvalidSessionError());
   }
   
 
@@ -78,7 +78,8 @@ export async function refreshController(req, res, next) {
     });
   } catch (error) {
     const tokenIsUnusable = [
-    "INVALID_CREDENTIALS",
+    "INVALID_REFRESH_TOKEN",
+    "INVALID_SESSION",
     "REFRESH_TOKEN_THEFT_DETECTED",
   ].includes(error.code);
 

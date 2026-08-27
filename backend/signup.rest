@@ -19,9 +19,5 @@ Content-Type: application/json
 }
 
 ### Refresh Token 
+# The REST client must retain and send the HttpOnly cookie set by /login.
 POST http://localhost:3000/api/auth/refresh
-Content-Type: application/json
-
-{
-  "refreshToken": "50baf5d34adbc380fb0a2e53419694ff34cc9b573bffaff587f143892337c98c"
-}

@@ -17,7 +17,11 @@ const { app } = await import("../src/app.js");
 const { createAccessToken, verifyAccessToken } = await import(
   "../src/modules/auth/auth.tokens.js"
 );
-const { InvalidCredentialsError } = await import(
+const {
+  InvalidCredentialsError,
+  InvalidRefreshTokenError,
+  InvalidSessionError,
+} = await import(
   "../src/middlewares/errorHandling.js"
 );
 const { createVerifyEmail } = await import(
@@ -68,6 +72,16 @@ test("credential errors remain generic", () => {
   assert.equal(error.message, "Invalid email or password.");
 });
 
+test("refresh and session errors have distinct internal codes", () => {
+  const refreshError = new InvalidRefreshTokenError();
+  const sessionError = new InvalidSessionError();
+
+  assert.equal(refreshError.code, "INVALID_REFRESH_TOKEN");
+  assert.equal(sessionError.code, "INVALID_SESSION");
+  assert.equal(refreshError.message, "Invalid or expired session.");
+  assert.equal(sessionError.message, "Invalid or expired session.");
+});
+
 test("verification email escapes usernames and uses a CID mascot", () => {
   const token = "a".repeat(64);
   const html = createVerifyEmail(
@@ -114,7 +128,7 @@ test("refresh without a cookie follows the standard error contract", async () =>
   assert.equal(response.status, 401);
   assert.deepEqual(body, {
     error: "Invalid or expired session.",
-    code: "INVALID_CREDENTIALS",
+    code: "INVALID_SESSION",
   });
 });
 

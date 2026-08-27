@@ -45,10 +45,10 @@ app.use((err, req, res, next) => {
   const isOperational = err.isOperational === true;
 
   if (env.NODE_ENV !== "test") {
-    if (isOperational) {
-      console.warn(`[${err.code}] ${err.message}`);
-    } else {
+    if (!isOperational || err.statusCode >= 500) {
       console.error(err);
+    } else if (err.code === "REFRESH_TOKEN_THEFT_DETECTED") {
+      console.warn(`[SECURITY] ${err.code}: ${err.message}`);
     }
   }
 
