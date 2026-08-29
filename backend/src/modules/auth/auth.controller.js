@@ -122,3 +122,20 @@ export async function logoutAllController(req, res) {
     message: "Logged out of all sessions successfully.",
   });
 }
+
+export async function getMeController(req, res) {
+  const user = req.user;
+
+  return res.status(200).json({
+    user: {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      emailVerified: user.emailVerified,
+      onboardingStatus: user.onboardingStatus.toLowerCase(),
+      onboardingStep: user.onboardingStep,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    },
+  });
+}

@@ -9,6 +9,7 @@
     "db:studio": "prisma studio",
     "dev": "nodemon src/index.js",
     "test": "node --test",
+    "test:onboarding-db": "node --test integration/onboarding.js",
     "worker:email": "node src/workers/email.worker.js"
   },
   "devDependencies": {

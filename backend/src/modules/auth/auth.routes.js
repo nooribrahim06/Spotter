@@ -23,7 +23,7 @@ import { refreshController } from "./auth.controller.js";
 import { logoutController } from "./auth.controller.js";
 import { resendVerificationController } from "./auth.controller.js";
 import { logoutAllController } from "./auth.controller.js";
-
+import { getMeController } from "./auth.controller.js";
 
 export const authRoutes = express.Router();
 authRoutes.post("/signup",
@@ -87,3 +87,7 @@ authRoutes.get(
     });
   }
 );
+authRoutes.get("/me",
+  authenticateToken,
+  getMeController
+)

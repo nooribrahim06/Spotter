@@ -2,7 +2,7 @@
 import crypto from "node:crypto";
 import { boss, startQueue, VERIFICATION_EMAIL_QUEUE } from "../queues/queue.js";
 import { decryptQueueToken } from "../queues/queueCrypto.js";
-import { findPendingVerificationEmailRecipient } from "../modules/auth/user.repository.js";
+import { findPendingVerificationEmailRecipient } from "../modules/users/user.repository.js";
 import { sendVerificationEmail } from "../emails/verificationEmail.service.js";
 
 await startQueue();

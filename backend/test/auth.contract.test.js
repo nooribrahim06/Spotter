@@ -30,6 +30,9 @@ const { createVerifyEmail } = await import(
 const { encryptQueueToken, decryptQueueToken } = await import(
   "../src/queues/queueCrypto.js"
 );
+const { step1Schema, step2Schema } = await import(
+  "../src/modules/on-boarding/onboarding.validation.js"
+);
 
 let server;
 let baseUrl;
@@ -220,4 +223,81 @@ test("CORS does not authorize an unconfigured origin", async () => {
   });
 
   assert.equal(response.headers.get("access-control-allow-origin"), null);
+});
+
+test("onboarding step 1 validates the complete birth date and adult age", () => {
+  const validResult = step1Schema.safeParse({
+    birthYear: new Date().getUTCFullYear() - 25,
+    birthMonth: 6,
+    birthDay: 15,
+    adultConfirmed: true,
+    sexForCalculation: "MALE",
+    preferredUnitSystem: "METRIC",
+    heightCm: 178,
+    currentWeightKg: 82.5,
+  });
+
+  assert.equal(validResult.success, true);
+
+  const invalidDateResult = step1Schema.safeParse({
+    birthYear: 2001,
+    birthMonth: 2,
+    birthDay: 29,
+    adultConfirmed: true,
+    sexForCalculation: "FEMALE",
+    preferredUnitSystem: "IMPERIAL",
+    heightCm: 165,
+    currentWeightKg: 60,
+  });
+
+  assert.equal(invalidDateResult.success, false);
+  assert.ok(
+    invalidDateResult.error.issues.some(
+      (issue) => issue.path.join(".") === "birthDay"
+    )
+  );
+});
+
+test("onboarding step 2 handles optional goal data", () => {
+  const maintainResult = step2Schema.safeParse({
+    goalType: "MAINTAIN_WEIGHT",
+    targetWeightKg: null,
+    targetDate: null,
+    activityLevel: "MODERATELY_ACTIVE",
+  });
+  const fitnessResult = step2Schema.safeParse({
+    goalType: "IMPROVE_FITNESS",
+    activityLevel: "VERY_ACTIVE",
+  });
+  const missingRequiredWeight = step2Schema.safeParse({
+    goalType: "LOSE_WEIGHT",
+    targetDate: null,
+    activityLevel: "LIGHTLY_ACTIVE",
+  });
+
+  assert.equal(maintainResult.success, true);
+  assert.equal(fitnessResult.success, true);
+  assert.equal(missingRequiredWeight.success, false);
+  assert.ok(
+    missingRequiredWeight.error.issues.some(
+      (issue) => issue.path.join(".") === "targetWeightKg"
+    )
+  );
+});
+
+test("all onboarding routes require a valid access token", async () => {
+  const requests = [
+    ["GET", "/api/onboarding/config"],
+    ["GET", "/api/onboarding"],
+    ["PATCH", "/api/onboarding"],
+    ["POST", "/api/onboarding/complete"],
+  ];
+
+  for (const [method, path] of requests) {
+    const response = await fetch(`${baseUrl}${path}`, { method });
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "INVALID_ACCESS_TOKEN");
+  }
 });

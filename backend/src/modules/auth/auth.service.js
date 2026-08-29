@@ -6,11 +6,17 @@ import {fromPrisma} from 'pg-boss';
 import { boss, VERIFICATION_EMAIL_QUEUE } from "../../queues/queue.js";
 import { encryptQueueToken } from "../../queues/queueCrypto.js";
 
-import { createUser } from "./user.repository.js";
-import { findUserByEmail } from "./user.repository.js";
-import { findUserById } from "./user.repository.js";
-import { verifyUserByToken } from "./user.repository.js";
-import { replaceVerificationToken } from "./user.repository.js";
+import { createUser } from "../users/user.repository.js";
+import { findUserByEmail } from "../users/user.repository.js";
+import { findUserById } from "../users/user.repository.js";
+import { verifyUserByToken } from "../users/user.repository.js";
+import { replaceVerificationToken } from "../users/user.repository.js";
+
+// the database keeps enums uppercase, but the frontend routing contract uses
+// lowercase. login and refresh must return the same shape or refresh will break it.
+function publicOnboardingStatus(status) {
+    return status.toLowerCase();
+}
 
 
 import { invalidTokenError } from "../../middlewares/errorHandling.js";
@@ -237,7 +243,9 @@ export async function login({ email, password , userAgent, ip }) {
         user: {
             id: user.id,
             email: user.email,
-            username: user.username
+            username: user.username,
+            onboardingStatus: publicOnboardingStatus(user.onboardingStatus),
+            onboardingStep: user.onboardingStep,
         },
 
         accessToken,
@@ -344,7 +352,9 @@ if (refreshTokenRecord.consumedAt !== null) {
         user: {
             id: user.id,
             email: user.email,
-            username: user.username
+            username: user.username,
+            onboardingStatus: publicOnboardingStatus(user.onboardingStatus),
+            onboardingStep: user.onboardingStep,
         },
         accessToken: newAccessToken,
         refreshToken: newRefreshToken

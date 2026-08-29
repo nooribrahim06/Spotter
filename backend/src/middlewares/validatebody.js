@@ -1,19 +1,38 @@
 import { invalidSchemaError } from "./errorHandling.js";
 
 
+// this helper is shared by auth and onboarding. it intentionally returns only
+// field + message, never the rejected value, schema internals, or stack trace.
+export function createPublicErrorDetails(error) {
+  return error.issues.flatMap((issue) => {
+    if (
+      issue.code === "unrecognized_keys" &&
+      Array.isArray(issue.keys)
+    ) {
+      return issue.keys.map((field) => ({
+        field,
+        message: "This field is not allowed.",
+      }));
+    }
+
+    return [
+      {
+        field: issue.path.join(".") || "data",
+        message: issue.message,
+      },
+    ];
+  });
+}
+
+
 export function validateBody(schema) {
   return function (req, res, next) {
     const result = schema.safeParse(req.body);
 
     if (!result.success) {
-      // Only expose public field paths and validation messages. Submitted
-      // values, schema internals, stack traces, and database details stay private.
-      const details = result.error.issues.map((issue) => ({
-        field: issue.path.join("."),
-        message: issue.message,
-      }));
-
-      throw new invalidSchemaError(details);
+      throw new invalidSchemaError(
+        createPublicErrorDetails(result.error)
+      );
     }
 
     req.validatedBody = result.data;

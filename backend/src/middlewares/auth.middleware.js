@@ -1,4 +1,4 @@
-import { findUserById } from "../modules/auth/user.repository.js";
+import { findUserById } from "../modules/users/user.repository.js";
 import { findSessionById } from "../modules/auth/repositories/authSession.repository.js";
 import { verifyAccessToken } from "../modules/auth/auth.tokens.js";
 import { InvalidAccessTokenError } from "./errorHandling.js";

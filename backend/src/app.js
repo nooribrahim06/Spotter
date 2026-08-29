@@ -1,5 +1,9 @@
 import express from "express";
+
+
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
+
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { env } from "./config/env.js";
@@ -28,6 +32,7 @@ app.use(cookieParser());
 // All requests beginning with /api/auth go to authRoutes
 app.use("/api/auth", authRoutes);
 
+app.use("/api/onboarding", onboardingRoutes);
 
 // must be global error handler, because it will catch all errors from all routes,
 //  and it must be after all routes, because it will catch errors from all routes.

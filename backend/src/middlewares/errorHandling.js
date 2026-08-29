@@ -101,3 +101,25 @@ export class RefreshTokenRaceError extends AppError {
     super(message, 409, "REFRESH_TOKEN_ALREADY_ROTATED");
   }
 }
+
+// =========== Onboarding Errors ===========
+// the data may be valid by itself but sent at the wrong time, like step 2 before
+// step 1. that is a state conflict, not an INVALID_SCHEMA validation error.
+export class InvalidOnboardingStateError extends AppError {
+  constructor(message = "This onboarding action is not allowed right now.") {
+    super(message, 409, "INVALID_ONBOARDING_STATE");
+  }
+}
+
+// this error belongs to the final step when saved records are still missing.
+// details only contain public field names and messages for the frontend.
+export class OnboardingIncompleteError extends AppError {
+  constructor(details = null) {
+    super(
+      "Complete the required onboarding steps before finishing.",
+      409,
+      "ONBOARDING_INCOMPLETE",
+      details
+    );
+  }
+}

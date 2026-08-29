@@ -15,6 +15,45 @@ enum UserRole {
   ADMIN
 }
 
+// ================ those enums all about the user profile and the user role in the system ================
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum SexForCalculation {
+  MALE
+  FEMALE
+}
+
+enum UnitSystem {
+  METRIC
+  IMPERIAL
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHTLY_ACTIVE
+  MODERATELY_ACTIVE
+  VERY_ACTIVE
+}
+
+enum GoalType {
+  LOSE_WEIGHT
+  MAINTAIN_WEIGHT
+  GAIN_WEIGHT
+  BUILD_MUSCLE
+  IMPROVE_FITNESS
+}
+
+enum GoalStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
 // A registered Spotter account. One user can have multiple active device sessions.
 model User {
   id           String @id @default(uuid()) @db.Uuid
@@ -29,14 +68,24 @@ model User {
   role      UserRole @default(USER)
 
   emailVerified        Boolean   @default(false) @map("email_verified")
-  verifyToken          String?   @map("verify_token") @db.VarChar(64)
+  verifyToken          String?   @unique @map("verify_token") @db.VarChar(64)
   verifyTokenExpiresAt DateTime? @map("verify_token_expires_at") @db.Timestamptz(6)
+
+  // Profile and onboarding fields
+  // onboardingStep is 1 or 2 while forms are being saved, 3 for the review
+  // screen, and null after completion because there is no next onboarding step.
+  onboardingStatus             OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
+  onboardingStep               Int?             @default(1) @map("onboarding_step")
+  fitnessOnboardingCompletedAt DateTime?        @map("fitness_onboarding_completed_at") @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Reverse side of AuthSession.user. This field does not create a database column.
-  authSessions AuthSession[]
+  authSessions    AuthSession[]
+  fitnessProfile  UserProfile?
+  goals           Goal[]
+  progressEntries ProgressEntry[]
 
   @@map("users")
 }
@@ -92,4 +141,84 @@ model RefreshToken {
   @@index([expiresAt])
   @@index([revokedAt])
   @@map("refresh_tokens")
+}
+
+model UserProfile {
+  // this table is the real saved profile, not a temporary draft. upsert lets the
+  // user correct it while onboarding is still in progress.
+  userId String @id @map("user_id") @db.Uuid
+
+  birthYear        Int      @map("birth_year") @db.SmallInt
+  birthMonth       Int      @map("birth_month") @db.SmallInt
+  birthDay         Int      @map("birth_day") @db.SmallInt
+  adultConfirmedAt DateTime @map("adult_confirmed_at") @db.Timestamptz(6)
+
+  sexForCalculation   SexForCalculation @map("sex_for_calculation")
+  preferredUnitSystem UnitSystem        @map("preferred_unit_system")
+
+  heightCm         Decimal @map("height_cm") @db.Decimal(5, 2)
+  startingWeightKg Decimal @map("starting_weight_kg") @db.Decimal(6, 2)
+
+  activityLevel ActivityLevel? @map("activity_level")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Goal {
+  // goalType represents the user's current onboarding goal. later goals are
+  // gonna use new rows instead of overwriting this history.
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  goalType       GoalType  @map("goal_type")
+  targetWeightKg Decimal?  @map("target_weight_kg") @db.Decimal(6, 2)
+  targetDate     DateTime? @map("target_date") @db.Date
+
+  status           GoalStatus @default(DRAFT)
+  // Nullable so normal future goals can coexist. Only one goal per user can
+  // carry `true`, which makes onboarding saves safe to repeat.
+  isOnboardingGoal Boolean?   @map("is_onboarding_goal")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progressEntries ProgressEntry[]
+
+  @@unique([userId, isOnboardingGoal])
+  @@index([userId])
+  @@index([userId, status])
+  @@map("goals")
+}
+
+model ProgressEntry {
+  // the first row is created from startingWeightKg when onboarding completes.
+  // later progress check-ins are normal additional rows with the flag left null.
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String  @map("user_id") @db.Uuid
+  goalId String? @map("goal_id") @db.Uuid
+
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  weightKg   Decimal  @map("weight_kg") @db.Decimal(6, 2)
+
+  notes            String?  @db.VarChar(1000)
+  // PostgreSQL permits multiple NULL values in this unique pair, while
+  // allowing only one `true` initial entry for a goal.
+  isInitialForGoal Boolean? @map("is_initial_for_goal")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@unique([goalId, isInitialForGoal])
+  @@index([userId, recordedAt])
+  @@index([goalId])
+  @@map("progress_entries")
 }
