@@ -227,6 +227,8 @@ test("CORS does not authorize an unconfigured origin", async () => {
 
 test("onboarding step 1 validates the complete birth date and adult age", () => {
   const validResult = step1Schema.safeParse({
+    firstName: "Noor",
+    lastName: "Ibrahim",
     birthYear: new Date().getUTCFullYear() - 25,
     birthMonth: 6,
     birthDay: 15,
@@ -240,6 +242,8 @@ test("onboarding step 1 validates the complete birth date and adult age", () => 
   assert.equal(validResult.success, true);
 
   const invalidDateResult = step1Schema.safeParse({
+    firstName: "Noor",
+    lastName: "Ibrahim",
     birthYear: 2001,
     birthMonth: 2,
     birthDay: 29,

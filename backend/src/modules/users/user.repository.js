@@ -71,6 +71,8 @@ export async function findUserByEmail(email) {
         id: true,
         email: true,
         username: true,
+        firstName: true,
+        lastName: true,
         passwordHash: true,
         emailVerified: true,
         onboardingStatus: true,
@@ -94,6 +96,8 @@ export async function findUserById(id, db = prisma) {
         id: true,
         email: true,
         username: true,
+        firstName: true,
+        lastName: true,
         emailVerified: true,
         onboardingStatus: true,
         onboardingStep: true,
@@ -201,6 +205,26 @@ export async function updateUserOnboardingStatus(userId, onboardingStatus, onboa
     return result;
   } catch (error) {
     throw new databaseError("Database error occurred while updating user onboarding status.");
+  }
+}
+
+// ============ Save the identity fields collected during onboarding ============
+// These columns belong to User rather than UserProfile, so the onboarding
+// service coordinates this repository update with the profile update.
+export async function updateUserNames(
+  userId,
+  { firstName, lastName },
+  db = prisma
+) {
+  try {
+    return await db.user.update({
+      where: { id: userId },
+      data: { firstName, lastName },
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while updating the user's name."
+    );
   }
 }
 

@@ -66,6 +66,19 @@ function isFutureDate(dateString) {
 // because these values are needed for fitness calculations.
 export const step1Schema = z
   .object({
+    // Names belong to User, while the remaining Step 1 fields belong to
+    // UserProfile. They are validated together because the frontend saves them
+    // as one form and the service persists them in one transaction.
+    firstName: z
+      .string()
+      .trim()
+      .min(2, "Enter your first name.")
+      .max(40, "First name is too long."),
+    lastName: z
+      .string()
+      .trim()
+      .min(2, "Enter your last name.")
+      .max(40, "Last name is too long."),
     birthYear: z.number().int("Birth year must be a whole number."),
     birthMonth: z
       .number()

@@ -131,6 +131,8 @@ export async function getMeController(req, res) {
       id: user.id,
       email: user.email,
       username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
       emailVerified: user.emailVerified,
       onboardingStatus: user.onboardingStatus.toLowerCase(),
       onboardingStep: user.onboardingStep,

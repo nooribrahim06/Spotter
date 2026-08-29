@@ -18,6 +18,7 @@ import { createInitialProgressEntry } from "../progress/progress.repository.js";
 import {
   claimOnboardingCompletion,
   findUserById,
+  updateUserNames,
   updateUserOnboardingStatus,
 } from "../users/user.repository.js";
 
@@ -45,10 +46,12 @@ function dateOnly(date) {
 // database names and frontend names are not always the same:
 // startingWeightKg -> currentWeightKg, and Decimal -> normal JavaScript number.
 // the goal is a separate table, so we combine it with the profile in this response.
-function savedData(profile, goal) {
+function savedData(user, profile, goal) {
   if (!profile) return {};
 
   return {
+    firstName: user.firstName,
+    lastName: user.lastName,
     birthYear: profile.birthYear,
     birthMonth: profile.birthMonth,
     birthDay: profile.birthDay,
@@ -118,7 +121,7 @@ export async function getUserOnboarding(userId) {
   // returning users receive the same shape with their saved fields inside data.
   return {
     ...progressResponse(user),
-    data: savedData(profile, goal),
+    data: savedData(user, profile, goal),
   };
 }
 
@@ -145,6 +148,11 @@ async function saveStep1(userId, data) {
   // profile and user progress must succeed together. if one query fails,
   // Prisma is gonna roll back both changes and we do not leave half-saved data.
   await prisma.$transaction(async (tx) => {
+    await updateUserNames(
+      userId,
+      { firstName: data.firstName, lastName: data.lastName },
+      tx
+    );
     await upsertUserProfile(userId, data, tx);
     await updateUserOnboardingStatus(userId, "IN_PROGRESS", nextStep, tx);
   });

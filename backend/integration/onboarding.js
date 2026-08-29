@@ -80,6 +80,8 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
     body: JSON.stringify({
       step: 1,
       data: {
+        firstName: "Noor",
+        lastName: "Ibrahim",
         birthYear: 2000,
         birthMonth: 6,
         birthDay: 15,
@@ -109,6 +111,8 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
 
   const resumed = await onboardingRequest("");
   assert.equal(resumed.body.status, "in_progress");
+  assert.equal(resumed.body.data.firstName, "Noor");
+  assert.equal(resumed.body.data.lastName, "Ibrahim");
   assert.equal(resumed.body.data.targetWeightKg, null);
   assert.equal(resumed.body.data.targetDate, null);
 
@@ -117,6 +121,8 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
     body: JSON.stringify({
       step: 1,
       data: {
+        firstName: "Nour",
+        lastName: "Ibrahim",
         birthYear: 2000,
         birthMonth: 6,
         birthDay: 15,
@@ -129,6 +135,13 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
     }),
   });
   assert.equal(editedStep1.body.currentStep, 3);
+
+  const renamedUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { firstName: true, lastName: true },
+  });
+  assert.equal(renamedUser.firstName, "Nour");
+  assert.equal(renamedUser.lastName, "Ibrahim");
 
   const [completed, completedAgain] = await Promise.all([
     // run two requests together to prove the completion claim really prevents
