@@ -64,7 +64,15 @@ export async function updateMyPublicProfile(userId, data) {
     }
     throw new ProfileIncompleteError(details);
   }
+  // why we separate updat and upsert?
+  /**
+   * upsert 
+     Missing profile is normal → create it with upsert --> this is the behavior we want for onboarding and imported/legacy data.
 
+update: 
+Missing profile is unexpected → fail instead of silently creating it --> to avoid accidentally creating a new profile when the user intended to update an existing one. 
+This helps maintain data integrity and prevents unintended consequences.
+   */
   const saved = existing
     ? await profileRepository.updatePublicProfile(userId, data)
     : await profileRepository.upsertPublicProfile(userId, data);
@@ -118,7 +126,11 @@ export async function updateMyBodyProfile(userId, data) {
   const values = {
     ...data,
     ...(data.birthDate
-      ? { birthDate: new Date(`${data.birthDate}T00:00:00.000Z`) }
+      ? { birthDate: new Date(`${data.birthDate}T00:00:00.000Z`) } // HELPS   to convert the date string to a Date object in UTC format, 
+      // ensuring consistency in how dates are stored and compared in the database.
+
+      // The "T00:00:00.000Z" T for separating date and time 
+      // 00:00:00 for midnight, and Z for UTC timezone.
       : {}),
   };
   const saved = await profileRepository.updateBodyProfile(userId, values);
@@ -133,6 +145,8 @@ const clearanceStateCodes = new Set(PROFESSIONAL_CLEARANCE_STATE_CODES);
 // The frontend is never trusted to choose its own safety result. For MVP the
 // result is deterministic and reviewable. A future medical-safety subsystem may
 // replace this rule, but an LLM should not silently make this high-impact flag.
+
+// my model can set this flag to true if the user has any health conditions or special planning states that require professional clearance.
 function requiresProfessionalClearance(data) {
   const riskyCondition = data.healthConditions.some(
     (condition) =>
@@ -158,6 +172,7 @@ export async function replaceMyHealthProfile(userId, data) {
   await requireBodyProfile(userId);
   const saved = await profileRepository.upsertHealthProfile(userId, {
     ...data,
+    // This flag is used to determine if the user needs professional clearance.
     requiresProfessionalClearance: requiresProfessionalClearance(data),
   });
   return serializeOwnedProfileSection(saved);
@@ -229,6 +244,10 @@ export async function getMyTargets(userId) {
   // Mifflin-St Jeor provides the deterministic MVP baseline. The formula lives
   // here because this is business calculation, while its adjustable policy
   // values live in config/profile.js.
+
+  // this whole logic will be replaced by the AI models 
+  // that is all just a placeholder for now, the AI model will calculate the targets based on the user profile and the goal type and
+  //  the AI model will be able to adjust the targets based on the user progress and the user feedback.
   const bmr =
     10 * weightKg + 6.25 * heightCm - 5 * age + sexAdjustment;
   const estimatedMaintenance =
