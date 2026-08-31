@@ -1,0 +1,3 @@
+# Codex scratch work may contain junctions to shared dependencies. It is
+# temporary tooling output and must never appear in this repository's changes.
+.codex-work/

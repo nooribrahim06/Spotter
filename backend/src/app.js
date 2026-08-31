@@ -3,6 +3,8 @@ import express from "express";
 
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
+import { profileRoutes } from "./modules/profiles/profile.routes.js";
+
 
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -33,6 +35,8 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 
 app.use("/api/onboarding", onboardingRoutes);
+
+app.use("/api/profiles", profileRoutes);
 
 // must be global error handler, because it will catch all errors from all routes,
 //  and it must be after all routes, because it will catch errors from all routes.

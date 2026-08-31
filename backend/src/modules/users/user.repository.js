@@ -71,12 +71,16 @@ export async function findUserByEmail(email) {
         id: true,
         email: true,
         username: true,
-        firstName: true,
-        lastName: true,
         passwordHash: true,
         emailVerified: true,
         onboardingStatus: true,
         onboardingStep: true,
+        userProfile: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
     });
     return user;
@@ -96,19 +100,45 @@ export async function findUserById(id, db = prisma) {
         id: true,
         email: true,
         username: true,
-        firstName: true,
-        lastName: true,
+        language: true,
+        country: true,
+        timezone: true,
+        role: true,
         emailVerified: true,
         onboardingStatus: true,
         onboardingStep: true,
         fitnessOnboardingCompletedAt: true,
         createdAt: true,
         updatedAt: true,
+        userProfile: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
     });
     return user;
   } catch (error) {
     throw new databaseError("Database error occurred while finding user by ID.");
+  }
+}
+
+// Password hashes are selected only for a specific sensitive-action check.
+// They never become part of req.user or a normal account/profile response.
+export async function findUserPasswordHashById(id, db = prisma) {
+  try {
+    return await db.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        passwordHash: true,
+      },
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while confirming the account password."
+    );
   }
 }
 
@@ -205,26 +235,6 @@ export async function updateUserOnboardingStatus(userId, onboardingStatus, onboa
     return result;
   } catch (error) {
     throw new databaseError("Database error occurred while updating user onboarding status.");
-  }
-}
-
-// ============ Save the identity fields collected during onboarding ============
-// These columns belong to User rather than UserProfile, so the onboarding
-// service coordinates this repository update with the profile update.
-export async function updateUserNames(
-  userId,
-  { firstName, lastName },
-  db = prisma
-) {
-  try {
-    return await db.user.update({
-      where: { id: userId },
-      data: { firstName, lastName },
-    });
-  } catch {
-    throw new databaseError(
-      "Database error occurred while updating the user's name."
-    );
   }
 }
 

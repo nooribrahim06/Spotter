@@ -305,3 +305,29 @@ test("all onboarding routes require a valid access token", async () => {
     assert.equal(body.code, "INVALID_ACCESS_TOKEN");
   }
 });
+
+test("all private profile routes require a valid access token", async () => {
+  const requests = [
+    ["GET", "/api/profiles/config"],
+    ["GET", "/api/profiles/me"],
+    ["PATCH", "/api/profiles/me/public"],
+    ["PATCH", "/api/profiles/me/account-preferences"],
+    ["POST", "/api/profiles/me/body"],
+    ["PATCH", "/api/profiles/me/body"],
+    ["DELETE", "/api/profiles/me/body"],
+    ["PUT", "/api/profiles/me/health"],
+    ["PUT", "/api/profiles/me/nutrition"],
+    ["PUT", "/api/profiles/me/training"],
+    ["PUT", "/api/profiles/me/coaching"],
+    ["POST", "/api/profiles/me/progress"],
+    ["GET", "/api/profiles/me/targets"],
+  ];
+
+  for (const [method, path] of requests) {
+    const response = await fetch(`${baseUrl}${path}`, { method });
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "INVALID_ACCESS_TOKEN");
+  }
+});

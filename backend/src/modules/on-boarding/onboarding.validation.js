@@ -66,9 +66,9 @@ function isFutureDate(dateString) {
 // because these values are needed for fitness calculations.
 export const step1Schema = z
   .object({
-    // Names belong to User, while the remaining Step 1 fields belong to
-    // UserProfile. They are validated together because the frontend saves them
-    // as one form and the service persists them in one transaction.
+    // Names belong to UserProfile, while the private fitness fields belong to
+    // BodyProfile. They share one request because the UI saves one form and the
+    // service persists both one-to-one records in one transaction.
     firstName: z
       .string()
       .trim()

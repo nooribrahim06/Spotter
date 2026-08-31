@@ -10,6 +10,7 @@
     "dev": "nodemon src/index.js",
     "test": "node --test",
     "test:onboarding-db": "node --test integration/onboarding.js",
+    "test:profiles-db": "node --test integration/profiles.js",
     "worker:email": "node src/workers/email.worker.js"
   },
   "devDependencies": {

@@ -54,6 +54,94 @@ enum GoalStatus {
   CANCELLED
 }
 
+// ============= those are about body profile, nutrition profile, training profile and coaching preferences ==============
+enum NutritionPlanStyle {
+  EXACT_MEALS
+  FLEXIBLE_MEALS
+  MACRO_BASED
+  SIMPLE_GUIDANCE
+}
+
+enum CookingSkill {
+  NONE
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum KitchenAccess {
+  NONE
+  MICROWAVE_ONLY
+  BASIC
+  FULL
+}
+
+enum FoodBudgetLevel {
+  LOW
+  MODERATE
+  FLEXIBLE
+}
+
+enum TrainingExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum TrainingEnvironment {
+  COMMERCIAL_GYM
+  HOME_GYM
+  HOME_MINIMAL
+  OUTDOORS
+  MIXED
+}
+
+enum CoachingStyle {
+  SUPPORTIVE
+  BALANCED
+  DIRECT
+}
+
+enum ExplanationLevel {
+  CONCISE
+  NORMAL
+  DETAILED
+}
+
+enum MotivationStyle {
+  ENCOURAGING
+  ACCOUNTABILITY
+  FACT_BASED
+  MINIMAL
+}
+
+enum CheckinFrequency {
+  DAILY
+  FEW_TIMES_PER_WEEK
+  WEEKLY
+}
+
+enum BodyMeasurementType {
+  WAIST
+  ABDOMEN
+  CHEST
+  HIPS
+  NECK
+  SHOULDERS
+
+  LEFT_UPPER_ARM
+  RIGHT_UPPER_ARM
+
+  LEFT_FOREARM
+  RIGHT_FOREARM
+
+  LEFT_THIGH
+  RIGHT_THIGH
+
+  LEFT_CALF
+  RIGHT_CALF
+}
+
 // A registered Spotter account. One user can have multiple active device sessions.
 model User {
   id           String @id @default(uuid()) @db.Uuid
@@ -61,11 +149,9 @@ model User {
   username     String @unique @db.VarChar(30)
   passwordHash String @map("password_hash") @db.VarChar(100)
 
-  firstName String?  @map("first_name") @db.VarChar(100)
-  lastName  String?  @map("last_name") @db.VarChar(100)
-  language  String   @default("en") @db.VarChar(10)
-  country   String?  @db.VarChar(2)
-  role      UserRole @default(USER)
+  language String   @default("en") @db.VarChar(10)
+  country  String?  @db.VarChar(2)
+  role     UserRole @default(USER)
 
   emailVerified        Boolean   @default(false) @map("email_verified")
   verifyToken          String?   @unique @map("verify_token") @db.VarChar(64)
@@ -81,11 +167,16 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  /// IANA timezone such as "Africa/Cairo". It may be unknown at signup, but it
+  /// must be collected before creating calendar-based plans or reminders.
+  timezone String? @db.VarChar(64)
+
   // Reverse side of AuthSession.user. This field does not create a database column.
-  authSessions    AuthSession[]
-  fitnessProfile  UserProfile?
-  goals           Goal[]
-  progressEntries ProgressEntry[]
+  authSessions        AuthSession[]
+  goals               Goal[]
+  userProfile         UserProfile?
+  bodyProfile         BodyProfile?
+  coachingPreferences CoachingPreferences?
 
   @@map("users")
 }
@@ -143,23 +234,21 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+/// Public/display identity. This model may eventually be visible to friends;
+/// private fitness, nutrition, and health data must never be added here.
 model UserProfile {
-  // this table is the real saved profile, not a temporary draft. upsert lets the
-  // user correct it while onboarding is still in progress.
   userId String @id @map("user_id") @db.Uuid
 
-  birthYear        Int      @map("birth_year") @db.SmallInt
-  birthMonth       Int      @map("birth_month") @db.SmallInt
-  birthDay         Int      @map("birth_day") @db.SmallInt
-  adultConfirmedAt DateTime @map("adult_confirmed_at") @db.Timestamptz(6)
+  /// A UserProfile is created only after onboarding supplies both names, so the
+  /// fields are required inside this otherwise optional one-to-one profile.
+  firstName   String  @map("first_name") @db.VarChar(40)
+  lastName    String  @map("last_name") @db.VarChar(40)
+  displayName String? @map("display_name") @db.VarChar(50)
+  bio         String? @db.VarChar(500)
 
-  sexForCalculation   SexForCalculation @map("sex_for_calculation")
-  preferredUnitSystem UnitSystem        @map("preferred_unit_system")
-
-  heightCm         Decimal @map("height_cm") @db.Decimal(5, 2)
-  startingWeightKg Decimal @map("starting_weight_kg") @db.Decimal(6, 2)
-
-  activityLevel ActivityLevel? @map("activity_level")
+  /// Object-storage key only. The API creates a temporary/public URL when it
+  /// returns the profile; image bytes and expiring URLs are never persisted.
+  profilePhotoKey String? @map("profile_photo_key") @db.VarChar(512)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -167,6 +256,50 @@ model UserProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
+}
+
+/// Private, stable facts used for calorie calculations and plan generation.
+/// Current measurements do not belong here; they live in ProgressEntry.
+model BodyProfile {
+  userId String @id @map("user_id") @db.Uuid
+
+  /// Stored as a PostgreSQL date so age is calculated accurately without time
+  /// zone shifts. Age itself must never be stored because it becomes stale.
+  birthDate DateTime @map("birth_date") @db.Date
+
+  /// Audit timestamp proving the adult confirmation was accepted. It should not
+  /// be rewritten during normal profile edits.
+  adultConfirmedAt DateTime @map("adult_confirmed_at") @db.Timestamptz(6)
+
+  /// Physiological input used only by formulas that require it. It is separate
+  /// from any future social gender field.
+  sexForCalculation SexForCalculation @map("sex_for_calculation")
+
+  /// Values are stored canonically in metric units; preferredUnitSystem controls
+  /// only how the API/UI accepts and displays them.
+  preferredUnitSystem UnitSystem @map("preferred_unit_system")
+
+  heightCm Decimal @map("height_cm") @db.Decimal(5, 2)
+
+  /// Immutable onboarding baseline. Current weight is read from the newest
+  /// ProgressEntry and must never overwrite this value.
+  startingWeightKg Decimal @map("starting_weight_kg") @db.Decimal(6, 2)
+
+  /// Used for initial calorie expenditure estimates. It stays nullable until
+  /// the activity step is completed.
+  activityLevel ActivityLevel? @map("activity_level")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  healthProfile    HealthProfile?
+  nutritionProfile NutritionProfile?
+  trainingProfile  TrainingProfile?
+  progressEntries  ProgressEntry[]
+
+  @@map("body_profiles")
 }
 
 model Goal {
@@ -196,29 +329,217 @@ model Goal {
   @@map("goals")
 }
 
+/// One private body snapshot at a specific time. BodyProfile owns the history,
+/// so deleting the body profile also deletes its measurements.
 model ProgressEntry {
-  // the first row is created from startingWeightKg when onboarding completes.
-  // later progress check-ins are normal additional rows with the flag left null.
   id String @id @default(uuid()) @db.Uuid
 
-  userId String  @map("user_id") @db.Uuid
-  goalId String? @map("goal_id") @db.Uuid
+  bodyProfileId String  @map("body_profile_id") @db.Uuid
+  goalId        String? @map("goal_id") @db.Uuid
 
   recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
-  weightKg   Decimal  @map("weight_kg") @db.Decimal(6, 2)
 
-  notes            String?  @db.VarChar(1000)
-  // PostgreSQL permits multiple NULL values in this unique pair, while
-  // allowing only one `true` initial entry for a goal.
+  /// Main source of truth for current weight. The latest entry is the value used
+  /// by the profile response, calculations, and the AI coach.
+  weightKg Decimal @map("weight_kg") @db.Decimal(6, 2)
+
+  /// Optional body-composition estimate. Useful for observing a trend, but the
+  /// AI must not treat a consumer-device estimate as a medical measurement.
+  bodyFatPercentage Decimal? @map("body_fat_percentage") @db.Decimal(5, 2)
+
+  /// Optional lean-mass estimate from a consistent scale or body scan. It helps
+  /// distinguish weight loss from possible muscle loss, but trend consistency
+  /// matters more than a single reading.
+  skeletalMuscleMassKg Decimal? @map("skeletal_muscle_mass_kg") @db.Decimal(6, 2)
+
+  /// Optional resting pulse. Long-term changes can provide recovery and general
+  /// cardiovascular context; it is not a diagnosis or a substitute for a doctor.
+  restingHeartRateBpm Int? @map("resting_heart_rate_bpm") @db.SmallInt
+
+  notes String? @db.VarChar(1000)
+
+  // PostgreSQL permits multiple NULL values while allowing one TRUE initial entry per goal.
   isInitialForGoal Boolean? @map("is_initial_for_goal")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+  goal        Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  measurements ProgressMeasurement[]
 
   @@unique([goalId, isInitialForGoal])
-  @@index([userId, recordedAt])
+  @@index([bodyProfileId, recordedAt])
   @@index([goalId])
   @@map("progress_entries")
+}
+
+/// A repeatable circumference measurement attached to one progress check-in.
+/// All values are stored canonically in centimeters even when the UI shows inches.
+model ProgressMeasurement {
+  id              String @id @default(uuid()) @db.Uuid
+  progressEntryId String @map("progress_entry_id") @db.Uuid
+
+  measurementType BodyMeasurementType @map("measurement_type")
+  valueCm         Decimal             @map("value_cm") @db.Decimal(6, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  progressEntry ProgressEntry @relation(fields: [progressEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([progressEntryId, measurementType])
+  @@index([progressEntryId])
+  @@map("progress_measurements")
+}
+
+/// Private health and safety constraints for plan generation. A missing JSON
+/// value means "not answered"; an empty array means "answered: none".
+model HealthProfile {
+  // bodyProfileId is both the PK and FK.
+  // This guarantees one HealthProfile per BodyProfile.
+  bodyProfileId String @id @map("body_profile_id") @db.Uuid
+
+  // Flexible health information supplied by the user.
+  //
+  // Example:
+  // [
+  //   {
+  //     "code": "DIABETES",
+  //     "notes": "Type 2",
+  //     "active": true
+  //   }
+  // ]
+  healthConditions Json? @map("health_conditions") @db.JsonB
+
+  // Physical restrictions relevant to exercise selection.
+  //
+  // Example:
+  // [
+  //   {
+  //     "bodyRegion": "RIGHT_KNEE",
+  //     "trigger": "DEEP_SQUAT",
+  //     "notes": "Pain below parallel"
+  //   }
+  // ]
+  movementLimitations Json? @map("movement_limitations") @db.JsonB
+
+  // Special situations that may require a different planning pathway.
+  //
+  // Example:
+  // [
+  //   {
+  //     "code": "POST_SURGERY",
+  //     "notes": "Doctor restricted heavy lifting"
+  //   }
+  // ]
+  specialPlanningStates Json? @map("special_planning_states") @db.JsonB
+
+  // If true, automatic plan generation should stop or become restricted
+  // until the user receives appropriate professional clearance.
+  requiresProfessionalClearance Boolean @default(false) @map("requires_professional_clearance")
+
+  // General user-provided safety information that does not fit elsewhere.
+  safetyNotes String? @map("safety_notes") @db.VarChar(2000)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+
+  @@map("health_profiles")
+}
+
+/// Private nutrition constraints and preferences. Safety information such as
+/// allergies remains distinct from soft preferences such as liked foods.
+model NutritionProfile {
+  bodyProfileId String @id @map("body_profile_id") @db.Uuid
+
+  /// Array of validated codes such as VEGAN, VEGETARIAN, or HALAL.
+  dietaryPreferenceCodes Json? @map("dietary_preference_codes") @db.JsonB
+
+  /// Structured arrays. Allergy objects may include code, severity, and notes;
+  /// preference objects may include food name/code and liked/disliked/avoided.
+  foodAllergies    Json? @map("food_allergies") @db.JsonB
+  foodIntolerances Json? @map("food_intolerances") @db.JsonB
+  foodPreferences  Json? @map("food_preferences") @db.JsonB
+
+  /// Meal counts and practical constraints make the generated plan realistic,
+  /// rather than optimizing nutrition while ignoring the user's daily routine.
+  mealsPerDay  Int? @map("meals_per_day") @db.SmallInt
+  snacksPerDay Int? @map("snacks_per_day") @db.SmallInt
+
+  planStyle          NutritionPlanStyle? @map("plan_style")
+  cookingSkill       CookingSkill?       @map("cooking_skill")
+  maxMealPrepMinutes Int?                @map("max_meal_prep_minutes") @db.SmallInt
+  kitchenAccess      KitchenAccess?      @map("kitchen_access")
+  foodBudgetLevel    FoodBudgetLevel?    @map("food_budget_level")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+
+  @@map("nutrition_profiles")
+}
+
+/// Private training baseline, availability, equipment, and recovery baseline.
+/// Daily sleep/stress observations will later belong to DailyLog; these values
+/// describe the user's typical starting point for the first plan.
+model TrainingProfile {
+  bodyProfileId String @id @map("body_profile_id") @db.Uuid
+
+  overallExperienceLevel  TrainingExperienceLevel? @map("overall_experience_level")
+  resistanceTrainingLevel TrainingExperienceLevel? @map("resistance_training_level")
+  cardioTrainingLevel     TrainingExperienceLevel? @map("cardio_training_level")
+
+  currentlyTrainingConsistently Boolean? @map("currently_training_consistently")
+  trainingDaysPerWeek           Int?     @map("training_days_per_week") @db.SmallInt
+  /// Structured days may include day number, availability, preferred status,
+  /// and optional time limits. The service must validate the JSON shape.
+  availableDays                 Json?    @map("available_days") @db.JsonB
+
+  preferredSessionMinutes Int?                 @map("preferred_session_minutes") @db.SmallInt
+  trainingEnvironment     TrainingEnvironment? @map("training_environment")
+
+  /// Structured equipment may include code, quantity, and maximum weight.
+  availableEquipment Json? @map("available_equipment") @db.JsonB
+
+  /// Array of validated style codes used to choose enjoyable workouts.
+  preferredTrainingStyles Json?   @map("preferred_training_styles") @db.JsonB
+  preferredCardioType     String? @map("preferred_cardio_type") @db.VarChar(100)
+
+  averageSleepMinutes Int? @map("average_sleep_minutes") @db.SmallInt
+  sleepQuality        Int? @map("sleep_quality") @db.SmallInt
+  typicalStressLevel  Int? @map("typical_stress_level") @db.SmallInt
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+
+  @@map("training_profiles")
+}
+
+/// Controls how the AI coach communicates. Communication defaults are safe,
+/// while proactive behavior and reminders require explicit user consent.
+model CoachingPreferences {
+  userId String @id @map("user_id") @db.Uuid
+
+  coachingStyle    CoachingStyle     @default(BALANCED) @map("coaching_style")
+  explanationLevel ExplanationLevel  @default(NORMAL) @map("explanation_level")
+  motivationStyle  MotivationStyle?  @map("motivation_style")
+  checkinFrequency CheckinFrequency? @map("checkin_frequency")
+
+  /// Opt-in fields: never enable unsolicited coaching or reminders by default.
+  proactiveCoaching  Boolean @default(false) @map("proactive_coaching")
+  workoutReminders   Boolean @default(false) @map("workout_reminders")
+  nutritionReminders Boolean @default(false) @map("nutrition_reminders")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coaching_preferences")
 }

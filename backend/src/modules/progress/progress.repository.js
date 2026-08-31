@@ -5,13 +5,13 @@ import { databaseError } from "../../middlewares/errorHandling.js";
 // the first weight is the currentWeightKg saved in step 1. upsert plus the
 // database unique index means retries can never create two initial entries.
 export async function createInitialProgressEntry(
-  { userId, goalId, weightKg },
+  { bodyProfileId, goalId, weightKg },
   db = prisma
 ) {
   try {
     return await db.progressEntry.create({
       data: {
-        userId,
+        bodyProfileId,
         goalId,
         weightKg,
         isInitialForGoal: true,

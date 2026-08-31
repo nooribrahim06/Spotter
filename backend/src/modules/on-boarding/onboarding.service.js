@@ -10,15 +10,16 @@ import {
   upsertOnboardingGoal,
 } from "../goals/goal.repository.js";
 import {
-  findProfileByUserId,
-  updateActivityLevelByUserId,
-  upsertUserProfile,
+  findBodyProfileByUserId,
+  findUserProfileByUserId,
+  updateBodyActivityLevel,
+  upsertBodyProfileForOnboarding,
+  upsertPublicProfile,
 } from "../profiles/profile.repository.js";
 import { createInitialProgressEntry } from "../progress/progress.repository.js";
 import {
   claimOnboardingCompletion,
   findUserById,
-  updateUserNames,
   updateUserOnboardingStatus,
 } from "../users/user.repository.js";
 
@@ -46,21 +47,21 @@ function dateOnly(date) {
 // database names and frontend names are not always the same:
 // startingWeightKg -> currentWeightKg, and Decimal -> normal JavaScript number.
 // the goal is a separate table, so we combine it with the profile in this response.
-function savedData(user, profile, goal) {
-  if (!profile) return {};
+function savedData(publicProfile, bodyProfile, goal) {
+  if (!publicProfile || !bodyProfile) return {};
 
   return {
-    firstName: user.firstName,
-    lastName: user.lastName,
-    birthYear: profile.birthYear,
-    birthMonth: profile.birthMonth,
-    birthDay: profile.birthDay,
-    adultConfirmed: Boolean(profile.adultConfirmedAt),
-    sexForCalculation: profile.sexForCalculation,
-    preferredUnitSystem: profile.preferredUnitSystem,
-    heightCm: Number(profile.heightCm),
-    currentWeightKg: Number(profile.startingWeightKg),
-    activityLevel: profile.activityLevel ?? null,
+    firstName: publicProfile.firstName,
+    lastName: publicProfile.lastName,
+    birthYear: bodyProfile.birthDate.getUTCFullYear(),
+    birthMonth: bodyProfile.birthDate.getUTCMonth() + 1,
+    birthDay: bodyProfile.birthDate.getUTCDate(),
+    adultConfirmed: Boolean(bodyProfile.adultConfirmedAt),
+    sexForCalculation: bodyProfile.sexForCalculation,
+    preferredUnitSystem: bodyProfile.preferredUnitSystem,
+    heightCm: Number(bodyProfile.heightCm),
+    currentWeightKg: Number(bodyProfile.startingWeightKg),
+    activityLevel: bodyProfile.activityLevel ?? null,
     goalType: goal?.goalType ?? null,
     targetWeightKg:
       goal?.targetWeightKg == null ? null : Number(goal.targetWeightKg),
@@ -106,9 +107,10 @@ export function getOnboardingConfig() {
 //   data: { birthYear, birthMonth, birthDay, currentWeightKg, ... }
 // }
 export async function getUserOnboarding(userId) {
-  const [user, profile, goal] = await Promise.all([
+  const [user, publicProfile, bodyProfile, goal] = await Promise.all([
     findUserById(userId),
-    findProfileByUserId(userId),
+    findUserProfileByUserId(userId),
+    findBodyProfileByUserId(userId),
     findOnboardingGoalByUserId(userId),
   ]);
 
@@ -121,7 +123,7 @@ export async function getUserOnboarding(userId) {
   // returning users receive the same shape with their saved fields inside data.
   return {
     ...progressResponse(user),
-    data: savedData(user, profile, goal),
+    data: savedData(publicProfile, bodyProfile, goal),
   };
 }
 
@@ -148,12 +150,24 @@ async function saveStep1(userId, data) {
   // profile and user progress must succeed together. if one query fails,
   // Prisma is gonna roll back both changes and we do not leave half-saved data.
   await prisma.$transaction(async (tx) => {
-    await updateUserNames(
+    await upsertPublicProfile(
       userId,
       { firstName: data.firstName, lastName: data.lastName },
       tx
     );
-    await upsertUserProfile(userId, data, tx);
+    await upsertBodyProfileForOnboarding(
+      userId,
+      {
+        birthDate: new Date(
+          Date.UTC(data.birthYear, data.birthMonth - 1, data.birthDay)
+        ),
+        sexForCalculation: data.sexForCalculation,
+        preferredUnitSystem: data.preferredUnitSystem,
+        heightCm: data.heightCm,
+        startingWeightKg: data.currentWeightKg,
+      },
+      tx
+    );
     await updateUserOnboardingStatus(userId, "IN_PROGRESS", nextStep, tx);
   });
 
@@ -174,9 +188,9 @@ async function saveStep1(userId, data) {
 //   completedSteps: [1, 2]
 // }
 async function saveStep2(userId, data) {
-  const [user, profile] = await Promise.all([
+  const [user, bodyProfile] = await Promise.all([
     findUserById(userId),
-    findProfileByUserId(userId),
+    findBodyProfileByUserId(userId),
   ]);
 
   if (!user || user.onboardingStatus === "COMPLETED") {
@@ -185,7 +199,7 @@ async function saveStep2(userId, data) {
     );
   }
 
-  if (!profile || (user.onboardingStep ?? 1) < 2) {
+  if (!bodyProfile || (user.onboardingStep ?? 1) < 2) {
     throw new InvalidOnboardingStateError(
       "Complete onboarding step 1 before saving step 2."
     );
@@ -201,10 +215,10 @@ async function saveStep2(userId, data) {
       : null,
   };
 
-  // activity belongs to UserProfile, while the current goal belongs to Goal.
+  // activity belongs to BodyProfile, while the current goal belongs to Goal.
   // the transaction keeps those two tables and the user step in sync.
   await prisma.$transaction(async (tx) => {
-    await updateActivityLevelByUserId(userId, data.activityLevel, tx);
+    await updateBodyActivityLevel(userId, data.activityLevel, tx);
     await upsertOnboardingGoal(userId, goalData, tx);
     await updateUserOnboardingStatus(userId, "IN_PROGRESS", 3, tx);
   });
@@ -225,12 +239,12 @@ export async function saveOnboardingStep(userId, step, data) {
 
 // before step 3 completes, collect safe public details about anything missing.
 // these field names are enough for the frontend without leaking database details.
-function incompleteDetails(profile, goal) {
+function incompleteDetails(publicProfile, bodyProfile, goal) {
   const details = [];
 
-  if (!profile) {
+  if (!publicProfile || !bodyProfile) {
     details.push({ field: "step", message: "Onboarding step 1 is missing." });
-  } else if (!profile.activityLevel) {
+  } else if (!bodyProfile.activityLevel) {
     details.push({
       field: "activityLevel",
       message: "Activity level has not been saved.",
@@ -269,7 +283,8 @@ export async function completeOnboarding(userId) {
   const transactionResult = await prisma.$transaction(async (tx) => {
     // A transaction uses one database connection, so keep its queries sequential.
     const user = await findUserById(userId, tx);
-    const profile = await findProfileByUserId(userId, tx);
+    const publicProfile = await findUserProfileByUserId(userId, tx);
+    const bodyProfile = await findBodyProfileByUserId(userId, tx);
     const goal = await findOnboardingGoalByUserId(userId, tx);
 
     if (user.onboardingStatus === "COMPLETED") return "already_completed";
@@ -280,7 +295,7 @@ export async function completeOnboarding(userId) {
       );
     }
 
-    const details = incompleteDetails(profile, goal);
+    const details = incompleteDetails(publicProfile, bodyProfile, goal);
     if (details.length > 0) throw new OnboardingIncompleteError(details);
 
     const completedAt = new Date();
@@ -292,9 +307,9 @@ export async function completeOnboarding(userId) {
 
     await createInitialProgressEntry(
       {
-        userId,
+        bodyProfileId: userId,
         goalId: goal.id,
-        weightKg: profile.startingWeightKg,
+        weightKg: bodyProfile.startingWeightKg,
       },
       tx
     );

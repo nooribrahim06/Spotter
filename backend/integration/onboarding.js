@@ -136,12 +136,12 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
   });
   assert.equal(editedStep1.body.currentStep, 3);
 
-  const renamedUser = await prisma.user.findUnique({
-    where: { id: user.id },
+  const renamedProfile = await prisma.userProfile.findUnique({
+    where: { userId: user.id },
     select: { firstName: true, lastName: true },
   });
-  assert.equal(renamedUser.firstName, "Nour");
-  assert.equal(renamedUser.lastName, "Ibrahim");
+  assert.equal(renamedProfile.firstName, "Nour");
+  assert.equal(renamedProfile.lastName, "Ibrahim");
 
   const [completed, completedAgain] = await Promise.all([
     // run two requests together to prove the completion claim really prevents
@@ -155,7 +155,7 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
   const [goals, initialEntries] = await Promise.all([
     prisma.goal.findMany({ where: { userId: user.id } }),
     prisma.progressEntry.findMany({
-      where: { userId: user.id, isInitialForGoal: true },
+      where: { bodyProfileId: user.id, isInitialForGoal: true },
     }),
   ]);
 

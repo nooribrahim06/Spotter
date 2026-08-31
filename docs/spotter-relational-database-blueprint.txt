@@ -1,0 +1,649 @@
+// Spotter — Relational Database Blueprint
+// PostgreSQL-oriented
+//
+// Core ownership model:
+// users         = authentication and account identity
+// user_profiles = social/display information that may be shown to friends
+// body_profiles = private fitness, nutrition, and health information
+//
+// Body profiles and all child health data are private by default.
+// Future sharing should expose explicitly selected progress fields through a
+// separate sharing policy; it should never make the whole body profile public.
+//
+// Immediate MVP models:
+// users, auth_sessions, refresh_tokens,
+// user_profiles, body_profiles,
+// user_dietary_preferences, user_food_allergies,
+// user_health_conditions, user_movement_limitations,
+// goals, progress_entries, progress_measurements
+//
+// Later phases:
+// plans, meals, workouts, daily_logs,
+// chats, messages, coach_profiles, notifications
+
+
+// ======================================================
+// AUTHENTICATION AND ACCOUNT IDENTITY
+// ======================================================
+
+users [icon: user, color: blue] {
+  id uuid pk
+
+  email varchar unique
+  username varchar unique
+  password_hash varchar
+
+  language_code varchar
+  country_code varchar nullable
+  role varchar
+
+  email_verified boolean
+  verify_token varchar nullable
+  verify_token_expires_at timestamptz nullable
+
+  onboarding_status varchar
+  onboarding_step int nullable
+  fitness_onboarding_completed_at timestamptz nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+auth_sessions [icon: monitor, color: blue] {
+  id uuid pk
+  user_id uuid
+
+  family_id uuid unique
+
+  user_agent varchar nullable
+  ip_hash varchar nullable
+
+  expires_at timestamptz
+  last_used_at timestamptz nullable
+  revoked_at timestamptz nullable
+
+  created_at timestamptz
+}
+
+
+refresh_tokens [icon: key, color: blue] {
+  id uuid pk
+  session_id uuid
+
+  token_hash varchar unique
+
+  replaced_by_token_id uuid nullable
+
+  expires_at timestamptz
+  consumed_at timestamptz nullable
+  revoked_at timestamptz nullable
+
+  created_at timestamptz
+}
+
+
+// ======================================================
+// SOCIAL / DISPLAY PROFILE
+// ======================================================
+
+// One optional profile per user. These are the fields that may be shown to
+// friends in a later social phase. Authentication and private body data do not
+// belong here.
+
+user_profiles [icon: user-check, color: teal] {
+  id uuid pk
+  user_id uuid unique
+
+  first_name varchar nullable
+  last_name varchar nullable
+  display_name varchar nullable
+  bio varchar nullable
+
+  // Store an object-storage key, not image bytes or an expiring signed URL.
+  profile_photo_key varchar nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// ======================================================
+// PRIVATE BODY PROFILE
+// ======================================================
+
+// Zero or one body profile per user profile. It is created during onboarding
+// and can be deleted without deleting the account or social profile.
+//
+// Current weight, body-fat percentage, and body measurements are read from the
+// latest progress entry. This avoids storing two conflicting current values.
+
+body_profiles [icon: activity, color: green] {
+  id uuid pk
+  user_profile_id uuid unique
+
+  birth_date date
+  sex_for_calculation varchar
+
+  height_cm decimal
+  activity_level varchar
+  preferred_unit_system varchar
+
+  adult_confirmed_at timestamptz nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Preferences are repeatable rows so a user can select more than one.
+// The application should enforce one row per body_profile_id + preference_code.
+
+user_dietary_preferences [icon: coffee, color: green] {
+  id uuid pk
+  body_profile_id uuid
+
+  preference_code varchar
+
+  created_at timestamptz
+}
+
+
+// Allergies are separate from preferences because they have different meaning
+// and safety implications.
+
+user_food_allergies [icon: alert-circle, color: red] {
+  id uuid pk
+  body_profile_id uuid
+
+  allergen_code varchar
+  severity varchar nullable
+  notes varchar nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Only collect health information that can affect safe fitness or nutrition
+// recommendations. All fields remain private.
+
+user_health_conditions [icon: heart, color: red] {
+  id uuid pk
+  body_profile_id uuid
+
+  condition_code varchar
+  notes varchar nullable
+  active boolean
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+user_movement_limitations [icon: alert-triangle, color: red] {
+  id uuid pk
+  body_profile_id uuid
+
+  limitation_code varchar
+  notes varchar nullable
+  active boolean
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Added when workout generation is implemented.
+
+user_workout_preferences [icon: activity, color: green] {
+  id uuid pk
+  body_profile_id uuid unique
+
+  experience_level varchar
+  training_days_per_week smallint
+  preferred_session_minutes int nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+user_available_equipment [icon: package, color: green] {
+  id uuid pk
+  workout_preferences_id uuid
+
+  equipment_code varchar
+
+  created_at timestamptz
+}
+
+
+// ======================================================
+// GOALS
+// ======================================================
+
+goals [icon: target, color: orange] {
+  id uuid pk
+  user_id uuid
+
+  goal_type varchar
+
+  target_weight_kg decimal nullable
+  target_date date nullable
+
+  status varchar
+  completed_at timestamptz nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Optional detailed measurement targets.
+
+goal_measurement_targets [icon: ruler, color: orange] {
+  id uuid pk
+  goal_id uuid
+
+  measurement_type varchar
+  target_value decimal
+  measurement_unit varchar
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// ======================================================
+// PLANS
+// ======================================================
+
+plans [icon: clipboard, color: yellow] {
+  id uuid pk
+
+  user_id uuid
+  goal_id uuid
+
+  calorie_target int nullable
+
+  protein_target_grams decimal nullable
+  carbohydrate_target_grams decimal nullable
+  fat_target_grams decimal nullable
+
+  nutrition_strategy text nullable
+  workout_strategy text nullable
+
+  start_date date
+  expected_end_date date nullable
+
+  status varchar
+
+  // Targets may be calculated deterministically while the schedule and written
+  // strategy are AI-generated. These fields make that generation auditable.
+  generated_by_type varchar
+  generated_by_user_id uuid nullable
+  generator_version varchar nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// ======================================================
+// MEAL LOGGING
+// ======================================================
+
+meals [icon: coffee, color: red] {
+  id uuid pk
+
+  user_id uuid
+  plan_id uuid nullable
+
+  meal_type varchar
+  log_type varchar
+
+  occurred_at timestamptz
+
+  notes text nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Each food is a relational row instead of an object inside a foods array.
+
+meal_items [icon: list, color: red] {
+  id uuid pk
+  meal_id uuid
+
+  food_name varchar
+  external_food_id varchar nullable
+
+  quantity decimal
+  quantity_unit varchar
+
+  calories int
+  protein_grams decimal
+  carbohydrate_grams decimal
+  fat_grams decimal
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Meal totals should normally be calculated from meal_items.
+// Do not store duplicate totals unless they become a deliberate cache.
+
+
+// ======================================================
+// WORKOUT LOGGING
+// ======================================================
+
+workouts [icon: activity, color: red] {
+  id uuid pk
+
+  user_id uuid
+  plan_id uuid nullable
+
+  workout_type varchar
+
+  started_at timestamptz
+  duration_minutes int nullable
+  estimated_calories_burned int nullable
+
+  notes text nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Each exercise is a row instead of an object in an array.
+
+workout_exercises [icon: dumbbell, color: red] {
+  id uuid pk
+  workout_id uuid
+
+  exercise_name varchar
+  exercise_order int
+
+  notes text nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// Sets are separated because exercises can have multiple sets.
+
+exercise_sets [icon: repeat, color: red] {
+  id uuid pk
+  workout_exercise_id uuid
+
+  set_number int
+
+  repetitions int nullable
+  weight_kg decimal nullable
+
+  duration_seconds int nullable
+  distance_meters decimal nullable
+
+  completed boolean
+
+  created_at timestamptz
+}
+
+
+// ======================================================
+// DAILY LOGS
+// ======================================================
+
+// Daily logs should not contain mealIds or workoutIds arrays.
+// Meals and workouts already belong to users and have timestamps.
+// Daily totals can be calculated using user_id + date.
+// This table is retained only for information that belongs to the whole day.
+
+daily_logs [icon: calendar, color: orange] {
+  id uuid pk
+
+  user_id uuid
+  plan_id uuid nullable
+
+  log_date date
+
+  water_intake_ml int nullable
+  sleep_minutes int nullable
+  mood varchar nullable
+
+  notes text nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+// The following should be calculated, not stored:
+// calories_consumed, calories_burned, calories_remaining,
+// protein_consumed, carbohydrate_consumed, fat_consumed,
+// meals_count, workouts_count, workout_completed.
+
+
+// ======================================================
+// PRIVATE PROGRESS HISTORY
+// ======================================================
+
+// The onboarding weight becomes the body's first progress entry. The most
+// recent entry supplies the current weight shown in the body profile.
+
+progress_entries [icon: trending-up, color: green] {
+  id uuid pk
+
+  body_profile_id uuid
+  goal_id uuid nullable
+  plan_id uuid nullable
+
+  recorded_at timestamptz
+
+  weight_kg decimal nullable
+  body_fat_percentage decimal nullable
+
+  notes text nullable
+
+  created_at timestamptz
+}
+
+
+// Measurements such as waist, chest, hips, neck, arm, and thigh are recorded
+// here. They are historical data, not columns duplicated on body_profiles.
+
+progress_measurements [icon: ruler, color: green] {
+  id uuid pk
+  progress_entry_id uuid
+
+  measurement_type varchar
+  measurement_value decimal
+  measurement_unit varchar
+
+  created_at timestamptz
+}
+
+
+// ======================================================
+// COACHES — FUTURE PHASE
+// ======================================================
+
+coach_profiles [icon: award, color: purple] {
+  id uuid pk
+  user_id uuid unique
+
+  education text nullable
+  years_of_experience smallint nullable
+  bio text nullable
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+coach_certifications [icon: certificate, color: purple] {
+  id uuid pk
+  coach_profile_id uuid
+
+  certification_name varchar
+  issuing_organization varchar nullable
+
+  issued_at date nullable
+  expires_at date nullable
+
+  created_at timestamptz
+}
+
+
+coach_specializations [icon: star, color: purple] {
+  id uuid pk
+  coach_profile_id uuid
+
+  specialization_code varchar
+
+  created_at timestamptz
+}
+
+
+// ======================================================
+// CHATS
+// ======================================================
+
+chats [icon: message-circle, color: teal] {
+  id uuid pk
+
+  user_id uuid
+  coach_id uuid nullable
+
+  title varchar
+  chat_type varchar
+
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+
+messages [icon: message-square, color: teal] {
+  id uuid pk
+  chat_id uuid
+
+  sender_type varchar
+  sender_user_id uuid nullable
+
+  content text
+
+  created_at timestamptz
+}
+
+
+// ======================================================
+// NOTIFICATIONS — FUTURE PHASE
+// ======================================================
+
+notifications [icon: bell, color: yellow] {
+  id uuid pk
+  user_id uuid
+
+  notification_type varchar
+  reason varchar nullable
+  content text
+
+  status varchar
+
+  read_at timestamptz nullable
+  created_at timestamptz
+}
+
+
+// ======================================================
+// RELATIONSHIPS
+// ======================================================
+
+// Authentication
+
+users.id < auth_sessions.user_id
+auth_sessions.id < refresh_tokens.session_id
+refresh_tokens.id - refresh_tokens.replaced_by_token_id
+
+
+// Public identity and private fitness profile
+
+users.id - user_profiles.user_id
+user_profiles.id - body_profiles.user_profile_id
+
+body_profiles.id < user_dietary_preferences.body_profile_id
+body_profiles.id < user_food_allergies.body_profile_id
+body_profiles.id < user_health_conditions.body_profile_id
+body_profiles.id < user_movement_limitations.body_profile_id
+
+body_profiles.id - user_workout_preferences.body_profile_id
+user_workout_preferences.id < user_available_equipment.workout_preferences_id
+
+
+// Goals and plans
+
+users.id < goals.user_id
+goals.id < goal_measurement_targets.goal_id
+
+users.id < plans.user_id
+goals.id < plans.goal_id
+users.id < plans.generated_by_user_id
+
+
+// Meals
+
+users.id < meals.user_id
+plans.id < meals.plan_id
+meals.id < meal_items.meal_id
+
+
+// Workouts
+
+users.id < workouts.user_id
+plans.id < workouts.plan_id
+
+workouts.id < workout_exercises.workout_id
+workout_exercises.id < exercise_sets.workout_exercise_id
+
+
+// Daily logs
+
+users.id < daily_logs.user_id
+plans.id < daily_logs.plan_id
+
+
+// Private progress
+
+body_profiles.id < progress_entries.body_profile_id
+goals.id < progress_entries.goal_id
+plans.id < progress_entries.plan_id
+
+progress_entries.id < progress_measurements.progress_entry_id
+
+
+// Coaches
+
+users.id - coach_profiles.user_id
+coach_profiles.id < coach_certifications.coach_profile_id
+coach_profiles.id < coach_specializations.coach_profile_id
+
+
+// Chats
+
+users.id < chats.user_id
+coach_profiles.id < chats.coach_id
+
+chats.id < messages.chat_id
+users.id < messages.sender_user_id
+
+
+// Notifications
+
+users.id < notifications.user_id

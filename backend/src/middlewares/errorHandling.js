@@ -123,3 +123,39 @@ export class OnboardingIncompleteError extends AppError {
     );
   }
 }
+
+// =========== Profile Errors ===========
+export class BodyProfileNotFoundError extends AppError {
+  constructor(message = "Create your body profile before using this action.") {
+    super(message, 404, "BODY_PROFILE_NOT_FOUND");
+  }
+}
+
+export class BodyProfileAlreadyExistsError extends AppError {
+  constructor(message = "A body profile already exists for this account.") {
+    super(message, 409, "BODY_PROFILE_ALREADY_EXISTS");
+  }
+}
+
+export class ProfileIncompleteError extends AppError {
+  constructor(details = null) {
+    super(
+      "Complete the required profile data before using this action.",
+      409,
+      "PROFILE_INCOMPLETE",
+      details
+    );
+  }
+}
+
+export class ActiveGoalRequiredError extends AppError {
+  constructor(message = "An active fitness goal is required for this action.") {
+    super(message, 409, "ACTIVE_GOAL_REQUIRED");
+  }
+}
+
+export class InvalidActionConfirmationError extends AppError {
+  constructor(message = "Password confirmation failed.") {
+    super(message, 403, "INVALID_PASSWORD_CONFIRMATION");
+  }
+}
