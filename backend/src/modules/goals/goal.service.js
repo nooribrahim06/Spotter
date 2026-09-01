@@ -1,16 +1,28 @@
 
-import * as goalsRepo from './goal.repository.js';
+import {
+  ActiveGoalExistsError,
+  GoalNotFoundError,
+  InvalidGoalStateError,
+} from "../../middlewares/errorHandling.js";
+import * as goalsRepo from "./goal.repository.js";
+import { serializeGoal } from "./goal.serializer.js";
 
-export async function createGoal(userId, data) {
-    // the user must have not an active goal , the previous goals must be explicitly completed or cancelled 
-    // if the user has an active goal , he cannot create a new goal
-    const activeGoals = goalsRepo.findActiveGoalByUserId(userId);
-    if (activeGoals) {
-        throw new Error("User already has an active goal. Complete or cancel the existing goal before creating a new one.");
-    }   
+export async function createGoal(userId, data, db) {
+  // Saving and activation are deliberately separate. A user may save a draft
+  // while another goal is active and return to it later without losing data.
+  const newGoal = await goalsRepo.createGoal(userId, data, db);
+  return serializeGoal(newGoal);
+}
 
-   // create the goal in the database
-   // it will be created with status DRAFT , the user must click activate to make it active , and the user can only have one active goal at a time
-   const newGoal = await goalsRepo.createGoal(userId, data);
-   return newGoal;
+export async function activateGoal(userId, goalId, db) {
+  const goal = await goalsRepo.findGoalByIdForUser(goalId, userId, db);
+
+  if (!goal) throw new GoalNotFoundError();
+  if (goal.status !== "DRAFT") throw new InvalidGoalStateError();
+
+  const activeGoal = await goalsRepo.findActiveGoalByUserId(userId, db);
+  if (activeGoal) throw new ActiveGoalExistsError();
+
+  const activatedGoal = await goalsRepo.activateGoal(goalId, db);
+  return serializeGoal(activatedGoal);
 }

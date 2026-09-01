@@ -331,3 +331,21 @@ test("all private profile routes require a valid access token", async () => {
     assert.equal(body.code, "INVALID_ACCESS_TOKEN");
   }
 });
+
+test("all current goal routes require a valid access token", async () => {
+  const requests = [
+    ["POST", "/api/goals"],
+    [
+      "POST",
+      "/api/goals/11111111-1111-4111-8111-111111111111/activate",
+    ],
+  ];
+
+  for (const [method, path] of requests) {
+    const response = await fetch(baseUrl + path, { method });
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "INVALID_ACCESS_TOKEN");
+  }
+});

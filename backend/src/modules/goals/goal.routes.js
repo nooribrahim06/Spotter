@@ -1,13 +1,18 @@
 import express from "express";
 import { authenticateToken } from "../../middlewares/auth.middleware.js";
-import { validateBody } from "../../middlewares/validatebody.js";
+import {
+  validateBody,
+  validateParams,
+} from "../../middlewares/validatebody.js";
 import * as goalValidation from "./goal.validation.js";
 import * as controllers from "./goal.controller.js";
 /**
     this file will have the routes of goals 
     1. create a goal 
     POST /api/goals
-    --> the req must go through auth middleware -> validate the body, no confirmation needed 
+    --> save an editable DRAFT after authentication and validation
+    POST /api/goals/:goalId/activate
+    --> activate that saved draft; a conflict leaves the draft unchanged
     2. get all goals of the user
     GET /api/goals
     3. get a specific goal of the user
@@ -30,8 +35,18 @@ import * as controllers from "./goal.controller.js";
     the user canot delete a goal once created 
  */
 
-const goalRoutes = express.Router();
+export const goalRoutes = express.Router();
 
 goalRoutes.use(express.json({ limit: "100kb" }), authenticateToken);
 
-goalRoutes.post("/", validateBody(goalValidation.createGoalSchema), controllers.createGoalController);
+goalRoutes.post(
+  "/",
+  validateBody(goalValidation.createGoalSchema),
+  controllers.createGoalController
+);
+
+goalRoutes.post(
+  "/:goalId/activate",
+  validateParams(goalValidation.goalIdParamSchema),
+  controllers.activateGoalController
+);

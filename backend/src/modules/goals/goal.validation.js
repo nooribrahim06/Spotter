@@ -1,22 +1,76 @@
 import * as z from "zod";
 
-const goalTypeEnum = z.enum(  "LOSE_WEIGHT",
-  "MAINTAIN_WEIGHT",
-  "GAIN_WEIGHT",
-  "BUILD_MUSCLE",
-  "IMPROVE_FITNESS",
-);
-// create goal schema for post /api/goals
+import {
+  GOAL_OPTIONS,
+  ONBOARDING_CONSTRAINTS,
+} from "../../config/onboarding.js";
 
-// it must have this data
-// 1. userId 
-// 2. goaltype and it is from the num  
-// 3. targetWeight and it must be a realistic number
-// 4. target date and it must be a date in the future
+const GoalTypeSchema = z.enum(GOAL_OPTIONS);
 
-export const createGoalSchema = z.object({
-  userId: z.string().uuid().required(),
-  goalType: goalTypeEnum.required(),
-  targetWeightKg: z.number().positive().min(30, "Target weight must be at least 30kg").max(300, "Target weight must be less than 300kg").optional(),
-  targetDate: z.date().min(new Date(), "Target date must be in the future").optional()
-}).strict();
+function isRealDate(dateString) {
+  const date = new Date(dateString + "T00:00:00.000Z");
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === dateString
+  );
+}
+
+function isFutureDate(dateString) {
+  return dateString > new Date().toISOString().slice(0, 10);
+}
+
+const TargetDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Target date must use YYYY-MM-DD.")
+  .refine(isRealDate, { message: "Target date must be a valid date." })
+  .refine(isFutureDate, { message: "Target date must be in the future." })
+  .transform((dateString) => new Date(dateString + "T00:00:00.000Z"));
+
+export const goalIdParamSchema = z
+  .object({
+    goalId: z.string().uuid("Goal ID must be a valid UUID."),
+  })
+  .strict();
+
+export const createGoalSchema = z
+  .object({
+    goalType: GoalTypeSchema,
+    targetWeightKg: z
+      .number()
+      .min(
+        ONBOARDING_CONSTRAINTS.minimumWeightKg,
+        "Target weight must be at least " +
+          ONBOARDING_CONSTRAINTS.minimumWeightKg +
+          " kg."
+      )
+      .max(
+        ONBOARDING_CONSTRAINTS.maximumWeightKg,
+        "Target weight must be at most " +
+          ONBOARDING_CONSTRAINTS.maximumWeightKg +
+          " kg."
+      )
+      .nullable()
+      .optional(),
+    targetDate: TargetDateSchema.nullable().optional(),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (
+      ["LOSE_WEIGHT", "GAIN_WEIGHT"].includes(data.goalType) &&
+      data.targetWeightKg == null
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["targetWeightKg"],
+        message: "Target weight is required for this goal.",
+      });
+    }
+
+    if (data.goalType === "MAINTAIN_WEIGHT" && data.targetWeightKg != null) {
+      context.addIssue({
+        code: "custom",
+        path: ["targetWeightKg"],
+        message: "Target weight must be omitted for maintenance goals.",
+      });
+    }
+  });

@@ -154,6 +154,27 @@ export class ActiveGoalRequiredError extends AppError {
   }
 }
 
+// =========== Goal Errors ===========
+export class ActiveGoalExistsError extends AppError {
+  constructor(
+    message = "Complete or cancel the active goal before activating another goal."
+  ) {
+    super(message, 409, "ACTIVE_GOAL_EXISTS");
+  }
+}
+
+export class GoalNotFoundError extends AppError {
+  constructor(message = "Goal not found.") {
+    super(message, 404, "GOAL_NOT_FOUND");
+  }
+}
+
+export class InvalidGoalStateError extends AppError {
+  constructor(message = "Only a draft goal can be activated.") {
+    super(message, 409, "INVALID_GOAL_STATE");
+  }
+}
+
 export class InvalidActionConfirmationError extends AppError {
   constructor(message = "Password confirmation failed.") {
     super(message, 403, "INVALID_PASSWORD_CONFIRMATION");

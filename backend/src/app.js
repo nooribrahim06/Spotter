@@ -2,6 +2,7 @@ import express from "express";
 
 
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { goalRoutes } from "./modules/goals/goal.routes.js";
 import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
 import { profileRoutes } from "./modules/profiles/profile.routes.js";
 
@@ -37,6 +38,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 
 app.use("/api/profiles", profileRoutes);
+
+app.use("/api/goals", goalRoutes);
 
 // must be global error handler, because it will catch all errors from all routes,
 //  and it must be after all routes, because it will catch errors from all routes.
