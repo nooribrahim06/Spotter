@@ -316,7 +316,7 @@ export async function completeOnboarding(userId) {
 
     // sending the email was not atomic in auth, but everything here really is:
     // user completion, initial progress, and goal activation share one transaction.
-    await activateGoal(goal.id, tx);
+    await activateGoal(goal.id, userId, tx);
 
     return "completed";
   });

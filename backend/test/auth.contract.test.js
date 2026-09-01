@@ -345,6 +345,18 @@ test("all current goal routes require a valid access token", async () => {
       "POST",
       "/api/goals/11111111-1111-4111-8111-111111111111/activate",
     ],
+    [
+      "PATCH",
+      "/api/goals/11111111-1111-4111-8111-111111111111",
+    ],
+    [
+      "POST",
+      "/api/goals/11111111-1111-4111-8111-111111111111/complete",
+    ],
+    [
+      "POST",
+      "/api/goals/11111111-1111-4111-8111-111111111111/cancel",
+    ],
   ];
 
   for (const [method, path] of requests) {

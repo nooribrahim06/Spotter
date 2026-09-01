@@ -175,6 +175,14 @@ export class InvalidGoalStateError extends AppError {
   }
 }
 
+export class GoalTypeChangeRequiredError extends AppError {
+  constructor(
+    message = "Change the draft goal type to match the target weight, then try again."
+  ) {
+    super(message, 409, "GOAL_TYPE_CHANGE_REQUIRED");
+  }
+}
+
 export class InvalidActionConfirmationError extends AppError {
   constructor(message = "Password confirmation failed.") {
     super(message, 403, "INVALID_PASSWORD_CONFIRMATION");

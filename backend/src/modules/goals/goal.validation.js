@@ -18,6 +18,11 @@ function isRealDate(dateString) {
 function isFutureDate(dateString) {
   return dateString > new Date().toISOString().slice(0, 10);
 }
+function atLeastOneField(schema) {
+  return schema.refine((data) => Object.keys(data).length > 0, {
+    message: "Send at least one field to update.",
+  });
+}
 
 const TargetDateSchema = z
   .string()
@@ -32,25 +37,27 @@ export const goalIdParamSchema = z
   })
   .strict();
 
+const TargetWeightSchema = z
+  .number()
+  .min(
+    ONBOARDING_CONSTRAINTS.minimumWeightKg,
+    "Target weight must be at least " +
+      ONBOARDING_CONSTRAINTS.minimumWeightKg +
+      " kg."
+  )
+  .max(
+    ONBOARDING_CONSTRAINTS.maximumWeightKg,
+    "Target weight must be at most " +
+      ONBOARDING_CONSTRAINTS.maximumWeightKg +
+      " kg."
+  )
+  .nullable()
+  .optional();
+
 export const createGoalSchema = z
   .object({
     goalType: GoalTypeSchema,
-    targetWeightKg: z
-      .number()
-      .min(
-        ONBOARDING_CONSTRAINTS.minimumWeightKg,
-        "Target weight must be at least " +
-          ONBOARDING_CONSTRAINTS.minimumWeightKg +
-          " kg."
-      )
-      .max(
-        ONBOARDING_CONSTRAINTS.maximumWeightKg,
-        "Target weight must be at most " +
-          ONBOARDING_CONSTRAINTS.maximumWeightKg +
-          " kg."
-      )
-      .nullable()
-      .optional(),
+    targetWeightKg: TargetWeightSchema,
     targetDate: TargetDateSchema.nullable().optional(),
   })
   .strict()
@@ -74,3 +81,16 @@ export const createGoalSchema = z
       });
     }
   });
+
+
+
+
+export const updateGoalSchema = atLeastOneField(
+  z
+    .object({
+      goalType: GoalTypeSchema.optional(),
+      targetWeightKg: TargetWeightSchema,
+      targetDate: TargetDateSchema.nullable().optional(),
+    })
+    .strict()
+);

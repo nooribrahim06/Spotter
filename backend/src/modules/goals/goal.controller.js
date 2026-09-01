@@ -41,3 +41,30 @@ export async function getGoalByIdController(req, res) {
 
   return privateResponse(res, 200, result);
 }
+export async function updateGoalController(req, res) {
+  const result = await goalService.updateGoal(
+    req.user.id,
+    req.validatedParams.goalId,
+    req.validatedBody
+  );
+
+  return privateResponse(res, 200, result);
+}
+
+export async function completeGoalController(req, res) {
+  const result = await goalService.completeGoal(
+    req.user.id,
+    req.validatedParams.goalId
+  );
+
+  return privateResponse(res, 200, result);
+}
+
+export async function cancelGoalController(req, res) {
+  const result = await goalService.cancelGoal(
+    req.user.id,
+    req.validatedParams.goalId
+  );
+
+  return privateResponse(res, 200, result);
+}

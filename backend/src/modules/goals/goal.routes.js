@@ -21,16 +21,13 @@ import * as controllers from "./goal.controller.js";
     GET /api/goals/active
     5. update a specific goal of the user
     PATCH /api/goals/:goalId 
-    my buisness rules prevent editing a goal that is already completed or cancelled
-    and when the goal is active , only specific range in any measur could be updated 
-    like if the weight goal = 50 kg , the user cannot change it to 70 or 80 , impossible to achieve in a short time , but the user can change it to 52 or 53 kg
+    only DRAFT goals can be edited, including their goal type
     5. complete a specific goal of the user
-    PATCH /api/goals/:goalId/complete
-    this is only called by me , i decide if the goal is completed or not , the user cannot complete a goal by himself
-    later , when i add the AI model , the AI model will decide if the goal is completed or not based on the user progress and the user feedback
+    POST /api/goals/:goalId/complete
+    only ACTIVE goals can be completed
     6. cancel a specific goal of the user
-    PATCH /api/goals/:goalId/cancel
-    this is called by user if he want  , and by me if the target date is passed and there is no seen progress for a long time , the goal will be automatically cancelled by me
+    POST /api/goals/:goalId/cancel
+    DRAFT or ACTIVE goals can be cancelled
 
     the user canot delete a goal once created 
  */
@@ -66,4 +63,25 @@ goalRoutes.get(
   "/:goalId",
   validateParams(goalValidation.goalIdParamSchema),
   controllers.getGoalByIdController
+);
+
+goalRoutes.patch(
+  "/:goalId",
+  // patch has the goal ID in params and editable draft fields in the body
+  // and the body will have the data to update
+  validateParams(goalValidation.goalIdParamSchema),
+  validateBody(goalValidation.updateGoalSchema),
+  controllers.updateGoalController
+);
+
+goalRoutes.post(
+  "/:goalId/complete",
+  validateParams(goalValidation.goalIdParamSchema),
+  controllers.completeGoalController
+);
+
+goalRoutes.post(
+  "/:goalId/cancel",
+  validateParams(goalValidation.goalIdParamSchema),
+  controllers.cancelGoalController
 );

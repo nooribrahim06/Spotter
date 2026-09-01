@@ -14,10 +14,13 @@ process.env.EMAIL_APP_PASSWORD = "test-password";
 
 const {
   activateGoal,
+  cancelGoal,
+  completeGoal,
   createGoal,
   getActiveGoal,
   getAllGoals,
   getGoalById,
+  updateGoal,
 } = await import(
   "../src/modules/goals/goal.service.js"
 );
@@ -101,11 +104,13 @@ test("activation marks a draft active and sets its start time", async () => {
       async findFirst({ where }) {
         return where.id ? draft : null;
       },
-      async update({ data }) {
-        return goalRecord({
-          ...data,
-          status: "ACTIVE",
-        });
+      async updateManyAndReturn({ data }) {
+        return [
+          goalRecord({
+            ...data,
+            status: "ACTIVE",
+          }),
+        ];
       },
     },
   };
@@ -122,7 +127,7 @@ test("the database race safeguard returns the same activation conflict", async (
       async findFirst({ where }) {
         return where.id ? goalRecord() : null;
       },
-      async update() {
+      async updateManyAndReturn() {
         throw { code: "P2002" };
       },
     },
@@ -244,4 +249,180 @@ test("goal lookup requires matching ownership", async () => {
     (error) => error.code === "GOAL_NOT_FOUND" && error.statusCode === 404
   );
   assert.deepEqual(query.where, { id: goalId, userId });
+});
+
+test("a draft can change goal type with a compatible target", async () => {
+  let updateQuery;
+  const draft = goalRecord({
+    goalType: "MAINTAIN_WEIGHT",
+    targetWeightKg: null,
+  });
+  const db = {
+    goal: {
+      async findFirst() {
+        return draft;
+      },
+      async updateManyAndReturn(args) {
+        updateQuery = args;
+        return [goalRecord(args.data)];
+      },
+    },
+  };
+
+  const result = await updateGoal(
+    userId,
+    goalId,
+    {
+      goalType: "GAIN_WEIGHT",
+      targetWeightKg: 90,
+    },
+    db
+  );
+
+  assert.deepEqual(updateQuery.where, {
+    id: goalId,
+    userId,
+    status: "DRAFT",
+  });
+  assert.equal(result.goalType, "GAIN_WEIGHT");
+  assert.equal(result.targetWeightKg, 90);
+});
+
+test("an incompatible target-only edit requests a goal type change", async () => {
+  let updateCalled = false;
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord({
+          goalType: "MAINTAIN_WEIGHT",
+          targetWeightKg: null,
+        });
+      },
+      async updateManyAndReturn() {
+        updateCalled = true;
+      },
+    },
+  };
+
+  await assert.rejects(
+    updateGoal(userId, goalId, { targetWeightKg: 85 }, db),
+    (error) =>
+      error.code === "GOAL_TYPE_CHANGE_REQUIRED" &&
+      error.statusCode === 409
+  );
+  assert.equal(updateCalled, false);
+});
+
+test("removing a required target requests a goal type change", async () => {
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord({
+          goalType: "LOSE_WEIGHT",
+          targetWeightKg: "75.00",
+        });
+      },
+    },
+  };
+
+  await assert.rejects(
+    updateGoal(userId, goalId, { targetWeightKg: null }, db),
+    (error) => error.code === "GOAL_TYPE_CHANGE_REQUIRED"
+  );
+});
+
+test("atomic draft editing rejects a concurrent state change", async () => {
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord();
+      },
+      async updateManyAndReturn() {
+        return [];
+      },
+    },
+  };
+
+  await assert.rejects(
+    updateGoal(userId, goalId, { targetDate: null }, db),
+    (error) =>
+      error.code === "INVALID_GOAL_STATE" &&
+      error.message === "Only a draft goal can be edited."
+  );
+});
+
+test("completion atomically transitions only an owned active goal", async () => {
+  let updateQuery;
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord({ status: "ACTIVE", startedAt: timestamp });
+      },
+      async updateManyAndReturn(args) {
+        updateQuery = args;
+        return [
+          goalRecord({
+            ...args.data,
+            status: "COMPLETED",
+            startedAt: timestamp,
+          }),
+        ];
+      },
+    },
+  };
+
+  const result = await completeGoal(userId, goalId, db);
+
+  assert.deepEqual(updateQuery.where, {
+    id: goalId,
+    userId,
+    status: "ACTIVE",
+  });
+  assert.equal(result.status, "COMPLETED");
+  assert.ok(result.completedAt instanceof Date);
+});
+
+test("a draft goal can be cancelled atomically", async () => {
+  let updateQuery;
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord();
+      },
+      async updateManyAndReturn(args) {
+        updateQuery = args;
+        return [goalRecord({ ...args.data, status: "CANCELLED" })];
+      },
+    },
+  };
+
+  const result = await cancelGoal(userId, goalId, db);
+
+  assert.deepEqual(updateQuery.where, {
+    id: goalId,
+    userId,
+    status: { in: ["DRAFT", "ACTIVE"] },
+  });
+  assert.equal(result.status, "CANCELLED");
+  assert.ok(result.cancelledAt instanceof Date);
+});
+
+test("a losing concurrent terminal transition returns a state conflict", async () => {
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord({ status: "ACTIVE", startedAt: timestamp });
+      },
+      async updateManyAndReturn() {
+        return [];
+      },
+    },
+  };
+
+  await assert.rejects(
+    completeGoal(userId, goalId, db),
+    (error) =>
+      error.code === "INVALID_GOAL_STATE" &&
+      error.statusCode === 409
+  );
 });

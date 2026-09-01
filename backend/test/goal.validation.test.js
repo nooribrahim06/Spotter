@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   createGoalSchema,
   goalIdParamSchema,
+  updateGoalSchema,
 } from "../src/modules/goals/goal.validation.js";
 
 test("goal creation accepts canonical JSON and converts the date", () => {
@@ -60,6 +61,25 @@ test("maintenance goals reject a different target weight", () => {
 test("goal IDs must be UUIDs", () => {
   assert.equal(
     goalIdParamSchema.safeParse({ goalId: "not-a-uuid" }).success,
+    false
+  );
+});
+
+test("draft updates may change goal type and related target fields", () => {
+  const result = updateGoalSchema.safeParse({
+    goalType: "GAIN_WEIGHT",
+    targetWeightKg: 90,
+    targetDate: "2099-12-01",
+  });
+
+  assert.equal(result.success, true);
+  assert.ok(result.data.targetDate instanceof Date);
+});
+
+test("draft updates require at least one editable field", () => {
+  assert.equal(updateGoalSchema.safeParse({}).success, false);
+  assert.equal(
+    updateGoalSchema.safeParse({ status: "ACTIVE" }).success,
     false
   );
 });

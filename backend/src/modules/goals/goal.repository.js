@@ -2,6 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import {
   ActiveGoalExistsError,
   databaseError,
+  InvalidGoalStateError,
 } from "../../middlewares/errorHandling.js";
 
 // ============ Find the goal created during onboarding ============
@@ -119,10 +120,15 @@ export async function createGoal(userId, goalData, db = prisma) {
   }
 }
 // ============ Activate a saved draft ============
-export async function activateGoal(goalId, db = prisma) {
+export async function activateGoal(goalId, userId, db = prisma) {
+  let goals;
   try {
-    return await db.goal.update({
-      where: { id: goalId },
+    goals = await db.goal.updateManyAndReturn({
+      where: {
+        id: goalId,
+        userId,
+        status: "DRAFT",
+      },
       data: {
         status: "ACTIVE",
         startedAt: new Date(),
@@ -137,4 +143,84 @@ export async function activateGoal(goalId, db = prisma) {
 
     throw new databaseError("Database error occurred while activating the goal.");
   }
+
+  if (!goals[0]) {
+    throw new InvalidGoalStateError("Only a draft goal can be activated.");
+  }
+
+  return goals[0];
+}
+// ============ Update a Goal ============
+export async function updateGoal(goalId, userId, updatedData, db = prisma) {
+  let goals;
+  try {
+    goals = await db.goal.updateManyAndReturn({
+      where: {
+        id: goalId,
+        userId,
+        status: "DRAFT",
+      },
+      data: updatedData,
+    });
+  } catch {
+    throw new databaseError("Database error occurred while updating the goal.");
+  }
+
+  if (!goals[0]) {
+    throw new InvalidGoalStateError("Only a draft goal can be edited.");
+  }
+
+  return goals[0];
+}
+// ============ Complete a Goal ============
+export async function completeGoal(goalId, userId, db = prisma) {
+  let goals;
+  try {
+    goals = await db.goal.updateManyAndReturn({
+      where: {
+        id: goalId,
+        userId,
+        status: "ACTIVE",
+      },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+      },
+    });
+  } catch {
+    throw new databaseError("Database error occurred while completing the goal.");
+  }
+
+  if (!goals[0]) {
+    throw new InvalidGoalStateError("Only an active goal can be completed.");
+  }
+
+  return goals[0];
+}
+// ============ Cancel a Goal ============
+export async function cancelGoal(goalId, userId, db = prisma) {
+  let goals;
+  try {
+    goals = await db.goal.updateManyAndReturn({
+      where: {
+        id: goalId,
+        userId,
+        status: { in: ["DRAFT", "ACTIVE"] },
+      },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+      },
+    });
+  } catch {
+    throw new databaseError("Database error occurred while cancelling the goal.");
+  }
+
+  if (!goals[0]) {
+    throw new InvalidGoalStateError(
+      "Only a draft or active goal can be cancelled."
+    );
+  }
+
+  return goals[0];
 }
