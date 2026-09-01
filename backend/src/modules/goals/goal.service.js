@@ -26,3 +26,20 @@ export async function activateGoal(userId, goalId, db) {
   const activatedGoal = await goalsRepo.activateGoal(goalId, db);
   return serializeGoal(activatedGoal);
 }
+
+export async function getAllGoals(userId, db) {
+  const goals = await goalsRepo.findAllGoalsByUserId(userId, db);
+  return goals.map(serializeGoal);
+}
+
+export async function getActiveGoal(userId, db) {
+  const goal = await goalsRepo.findActiveGoalByUserId(userId, db);
+  if (!goal) throw new GoalNotFoundError();
+  return serializeGoal(goal);
+}
+
+export async function getGoalById(userId, goalId, db) {
+  const goal = await goalsRepo.findGoalByIdForUser(goalId, userId, db);
+  if (!goal) throw new GoalNotFoundError();
+  return serializeGoal(goal);
+}

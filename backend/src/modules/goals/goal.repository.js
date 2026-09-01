@@ -51,6 +51,17 @@ export async function findGoalByIdForUser(goalId, userId, db = prisma) {
     throw new databaseError("Database error occurred while finding the goal.");
   }
 }
+
+// ============ Find all goals for a user ============
+export async function findAllGoalsByUserId(userId, db = prisma) {
+  try {
+    const user = await db.user.findUnique({ where: { id: userId }, include: { goals: { orderBy: { createdAt: "desc" } } } });
+    return user?.goals ?? [];
+  } catch (error) {
+    throw new databaseError("Database error occurred while finding all goals for the user.");
+  }
+}
+
 // ============ Create or update the onboarding goal ============
 // repeated step 2 saves must edit the same row, not create more and more goals.
 export async function upsertOnboardingGoal(userId, goalData, db = prisma) {
