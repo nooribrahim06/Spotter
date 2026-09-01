@@ -5,7 +5,11 @@ import {
   InvalidGoalStateError,
 } from "../../middlewares/errorHandling.js";
 import * as goalsRepo from "./goal.repository.js";
-import { serializeGoal } from "./goal.serializer.js";
+import * as progressRepo from "../progress/progress.repository.js";
+import {
+  serializeActiveGoal,
+  serializeGoal,
+} from "./goal.serializer.js";
 
 export async function createGoal(userId, data, db) {
   // Saving and activation are deliberately separate. A user may save a draft
@@ -34,8 +38,11 @@ export async function getAllGoals(userId, db) {
 
 export async function getActiveGoal(userId, db) {
   const goal = await goalsRepo.findActiveGoalByUserId(userId, db);
-  if (!goal) throw new GoalNotFoundError();
-  return serializeGoal(goal);
+  if (!goal) return null;
+
+  const currentProgress =
+    await progressRepo.findLatestProgressEntryByUserId(userId, db);
+  return serializeActiveGoal(goal, currentProgress);
 }
 
 export async function getGoalById(userId, goalId, db) {

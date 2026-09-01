@@ -55,10 +55,14 @@ export async function findGoalByIdForUser(goalId, userId, db = prisma) {
 // ============ Find all goals for a user ============
 export async function findAllGoalsByUserId(userId, db = prisma) {
   try {
-    const user = await db.user.findUnique({ where: { id: userId }, include: { goals: { orderBy: { createdAt: "desc" } } } });
-    return user?.goals ?? [];
-  } catch (error) {
-    throw new databaseError("Database error occurred while finding all goals for the user.");
+    return await db.goal.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while finding all goals for the user."
+    );
   }
 }
 

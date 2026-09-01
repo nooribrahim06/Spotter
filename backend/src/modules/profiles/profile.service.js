@@ -16,6 +16,7 @@ import {
   ProfileIncompleteError,
 } from "../../middlewares/errorHandling.js";
 import { findUserPasswordHashById } from "../users/user.repository.js";
+import { serializeProgressEntry } from "../progress/progress.serializer.js";
 import * as profileRepository from "./profile.repository.js";
 import {
   serializeBodyProfile,
@@ -24,7 +25,6 @@ import {
   serializeDateOnly,
   serializeDecimal,
   serializeOwnedProfileSection,
-  serializeProgressEntry,
   serializePublicProfile,
 } from "./profile.serializer.js";
 

@@ -53,17 +53,17 @@ goalRoutes.post(
 
 
 goalRoutes.get(
-    "/",
-    controllers.getAllGoalsController
-  );
+  "/",
+  controllers.getAllGoalsController
+);
 
 goalRoutes.get(
-    "/active",
-    controllers.getActiveGoalController
-)
+  "/active",
+  controllers.getActiveGoalController
+);
 
 goalRoutes.get(
-    "/:goalId",
-    validateParams(goalValidation.goalIdParamSchema),
-    controllers.getGoalByIdController
-)
+  "/:goalId",
+  validateParams(goalValidation.goalIdParamSchema),
+  controllers.getGoalByIdController
+);

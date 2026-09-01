@@ -22,22 +22,22 @@ export async function activateGoalController(req, res) {
 }
 
 export async function getAllGoalsController(req, res) {
-    const result = await goalService.getAllGoals(req.user.id);
+  const result = await goalService.getAllGoals(req.user.id);
 
-    return privateResponse(res, 200, result);
+  return privateResponse(res, 200, result);
 }
 
 export async function getActiveGoalController(req, res) {
-    const result = await goalService.getActiveGoal(req.user.id);
+  const result = await goalService.getActiveGoal(req.user.id);
 
-    return privateResponse(res, 200, result);
+  return privateResponse(res, 200, result);
 }
 
 export async function getGoalByIdController(req, res) {
-    const result = await goalService.getGoalById(
-        req.user.id,
-        req.validatedParams.goalId
-    );
+  const result = await goalService.getGoalById(
+    req.user.id,
+    req.validatedParams.goalId
+  );
 
-    return privateResponse(res, 200, result);
+  return privateResponse(res, 200, result);
 }

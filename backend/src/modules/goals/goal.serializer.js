@@ -2,6 +2,7 @@ import {
   serializeDateOnly,
   serializeDecimal,
 } from "../profiles/profile.serializer.js";
+import { serializeProgressEntry } from "../progress/progress.serializer.js";
 
 export function serializeGoal(goal) {
   return {
@@ -15,5 +16,12 @@ export function serializeGoal(goal) {
     cancelledAt: goal.cancelledAt,
     createdAt: goal.createdAt,
     updatedAt: goal.updatedAt,
+  };
+}
+
+export function serializeActiveGoal(goal, currentProgress) {
+  return {
+    ...serializeGoal(goal),
+    currentProgress: serializeProgressEntry(currentProgress),
   };
 }

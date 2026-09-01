@@ -335,6 +335,12 @@ test("all private profile routes require a valid access token", async () => {
 test("all current goal routes require a valid access token", async () => {
   const requests = [
     ["POST", "/api/goals"],
+    ["GET", "/api/goals"],
+    ["GET", "/api/goals/active"],
+    [
+      "GET",
+      "/api/goals/11111111-1111-4111-8111-111111111111",
+    ],
     [
       "POST",
       "/api/goals/11111111-1111-4111-8111-111111111111/activate",

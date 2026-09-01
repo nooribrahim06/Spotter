@@ -23,3 +23,36 @@ export async function createInitialProgressEntry(
     );
   }
 }
+
+// Current body progress belongs to the user's BodyProfile. It is not filtered
+// by goalId because regular check-ins may not be attached to a specific goal.
+export async function findLatestProgressEntryByUserId(
+  userId,
+  db = prisma
+) {
+  try {
+    return await db.progressEntry.findFirst({
+      where: { bodyProfileId: userId },
+      select: {
+        id: true,
+        recordedAt: true,
+        weightKg: true,
+        bodyFatPercentage: true,
+        skeletalMuscleMassKg: true,
+        restingHeartRateBpm: true,
+        notes: true,
+        measurements: {
+          select: {
+            measurementType: true,
+            valueCm: true,
+          },
+        },
+      },
+      orderBy: [{ recordedAt: "desc" }, { createdAt: "desc" }],
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while finding the latest progress entry."
+    );
+  }
+}

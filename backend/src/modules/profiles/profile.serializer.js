@@ -1,3 +1,5 @@
+import { serializeProgressEntry } from "../progress/progress.serializer.js";
+
 /*
  * Why does the profile module need a serializer?
  *
@@ -32,24 +34,6 @@ export function serializeDecimal(value) {
 // only YYYY-MM-DD prevents the frontend from applying a timezone offset to them.
 export function serializeDateOnly(value) {
   return value ? value.toISOString().slice(0, 10) : null;
-}
-
-// Progress contains several Decimal columns and child circumference records.
-// Each numeric field is converted explicitly so the frontend never receives a
-// Prisma-specific object or numeric string.
-export function serializeProgressEntry(entry) {
-  if (!entry) return null;
-
-  return {
-    ...entry,
-    weightKg: serializeDecimal(entry.weightKg),
-    bodyFatPercentage: serializeDecimal(entry.bodyFatPercentage),
-    skeletalMuscleMassKg: serializeDecimal(entry.skeletalMuscleMassKg),
-    measurements: entry.measurements.map((measurement) => ({
-      measurementType: measurement.measurementType,
-      valueCm: serializeDecimal(measurement.valueCm),
-    })),
-  };
 }
 
 // The repository intentionally loads only the newest progress entry. Prisma

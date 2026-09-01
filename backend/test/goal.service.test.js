@@ -12,7 +12,13 @@ process.env.SESSION_EXPIRATION = "30d";
 process.env.EMAIL_USER = "test@example.com";
 process.env.EMAIL_APP_PASSWORD = "test-password";
 
-const { activateGoal, createGoal } = await import(
+const {
+  activateGoal,
+  createGoal,
+  getActiveGoal,
+  getAllGoals,
+  getGoalById,
+} = await import(
   "../src/modules/goals/goal.service.js"
 );
 
@@ -126,4 +132,116 @@ test("the database race safeguard returns the same activation conflict", async (
     activateGoal(userId, goalId, db),
     (error) => error.code === "ACTIVE_GOAL_EXISTS" && error.statusCode === 409
   );
+});
+
+test("goal history is owned, newest-first, and serialized", async () => {
+  let query;
+  const db = {
+    goal: {
+      async findMany(args) {
+        query = args;
+        return [
+          goalRecord({
+            id: "33333333-3333-4333-8333-333333333333",
+            targetWeightKg: "75.50",
+            targetDate: new Date("2099-12-01T00:00:00.000Z"),
+            status: "COMPLETED",
+          }),
+          goalRecord(),
+        ];
+      },
+    },
+  };
+
+  const result = await getAllGoals(userId, db);
+
+  assert.deepEqual(query, {
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+  assert.equal(result.length, 2);
+  assert.equal(result[0].targetWeightKg, 75.5);
+  assert.equal(result[0].targetDate, "2099-12-01");
+  assert.equal("userId" in result[0], false);
+});
+
+test("active goal includes the user's latest progress entry", async () => {
+  let progressQuery;
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord({ status: "ACTIVE", startedAt: timestamp });
+      },
+    },
+    progressEntry: {
+      async findFirst(args) {
+        progressQuery = args;
+        return {
+          id: "44444444-4444-4444-8444-444444444444",
+          recordedAt: timestamp,
+          weightKg: "81.25",
+          bodyFatPercentage: "18.50",
+          skeletalMuscleMassKg: null,
+          restingHeartRateBpm: 60,
+          notes: null,
+          measurements: [
+            {
+              measurementType: "WAIST",
+              valueCm: "84.50",
+            },
+          ],
+        };
+      },
+    },
+  };
+
+  const result = await getActiveGoal(userId, db);
+
+  assert.deepEqual(progressQuery.where, { bodyProfileId: userId });
+  assert.deepEqual(progressQuery.orderBy, [
+    { recordedAt: "desc" },
+    { createdAt: "desc" },
+  ]);
+  assert.equal(result.status, "ACTIVE");
+  assert.equal(result.currentProgress.weightKg, 81.25);
+  assert.equal(result.currentProgress.measurements[0].valueCm, 84.5);
+});
+
+test("no active goal is a normal null response", async () => {
+  let progressQueried = false;
+  const db = {
+    goal: {
+      async findFirst() {
+        return null;
+      },
+    },
+    progressEntry: {
+      async findFirst() {
+        progressQueried = true;
+      },
+    },
+  };
+
+  const result = await getActiveGoal(userId, db);
+
+  assert.equal(result, null);
+  assert.equal(progressQueried, false);
+});
+
+test("goal lookup requires matching ownership", async () => {
+  let query;
+  const db = {
+    goal: {
+      async findFirst(args) {
+        query = args;
+        return null;
+      },
+    },
+  };
+
+  await assert.rejects(
+    getGoalById(userId, goalId, db),
+    (error) => error.code === "GOAL_NOT_FOUND" && error.statusCode === 404
+  );
+  assert.deepEqual(query.where, { id: goalId, userId });
 });
