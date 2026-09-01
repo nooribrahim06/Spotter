@@ -316,7 +316,9 @@ model Goal {
   // Nullable so normal future goals can coexist. Only one goal per user can
   // carry `true`, which makes onboarding saves safe to repeat.
   isOnboardingGoal Boolean?   @map("is_onboarding_goal")
-
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

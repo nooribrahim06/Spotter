@@ -20,7 +20,21 @@ export async function findOnboardingGoalByUserId(userId, db = prisma) {
     );
   }
 }
-
+//======== === Find the active goal for a user ============
+export async function findActiveGoalByUserId(userId, db = prisma) {
+  try {
+    return await db.goal.findFirst({
+      where: {
+        userId,
+        status: "ACTIVE",
+      },
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while finding the active goal."
+    );
+  }
+}
 // ============ Create or update the onboarding goal ============
 // repeated step 2 saves must edit the same row, not create more and more goals.
 export async function upsertOnboardingGoal(userId, goalData, db = prisma) {
@@ -50,7 +64,27 @@ export async function upsertOnboardingGoal(userId, goalData, db = prisma) {
     );
   }
 }
+// ============ Create a new goal for a user ============
+export async function createGoal(userId, goalData, db = prisma) {
+  const data = {
+    userId,
+    goalType: goalData.goalType,
+    targetWeightKg: goalData.targetWeightKg ?? null,
+    targetDate: goalData.targetDate ?? null,
+    status: "DRAFT",
+    isOnboardingGoal: false,
+  };
 
+  try {
+    return await db.goal.create({
+      data,
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while creating a new goal."
+    );
+  }
+}
 // ============ Activate the saved goal during step 3 ============
 export async function activateGoal(goalId, db = prisma) {
   try {
