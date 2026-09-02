@@ -198,3 +198,24 @@ export class InvalidActionConfirmationError extends AppError {
     super(message, 403, "INVALID_PASSWORD_CONFIRMATION");
   }
 }
+
+// =========== Recipe Errors ===========
+export class RecipeNotFoundError extends AppError {
+  constructor(message = "Recipe not found.") {
+    super(message, 404, "RECIPE_NOT_FOUND");
+  }
+}
+
+export class InvalidRecipeIngredientsError extends AppError {
+  constructor(
+    message = "One or more selected foods are unavailable."
+  ) {
+    super(message, 409, "INVALID_RECIPE_INGREDIENTS", [
+      {
+        field: "ingredients",
+        message:
+          "Every ingredient must reference an active global food or one of your custom foods.",
+      },
+    ]);
+  }
+}
