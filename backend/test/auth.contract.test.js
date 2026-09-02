@@ -367,3 +367,19 @@ test("all current goal routes require a valid access token", async () => {
     assert.equal(body.code, "INVALID_ACCESS_TOKEN");
   }
 });
+
+test("all current food routes require a valid access token", async () => {
+  const requests = [
+    ["GET", "/api/foods"],
+    ["GET", "/api/foods/search?search=chicken&page=2&limit=10"],
+    ["POST", "/api/foods/custom"],
+  ];
+
+  for (const [method, path] of requests) {
+    const response = await fetch(baseUrl + path, { method });
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "INVALID_ACCESS_TOKEN");
+  }
+});
