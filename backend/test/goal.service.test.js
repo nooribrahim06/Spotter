@@ -75,6 +75,54 @@ test("saving a regular goal creates a history-safe draft", async () => {
   assert.equal("isOnboardingGoal" in result, false);
 });
 
+test("a gain-weight goal rejects a target at or below current weight", async () => {
+  let createCalled = false;
+  const db = {
+    progressEntry: {
+      async findFirst() {
+        return { weightKg: "90.00" };
+      },
+    },
+    goal: {
+      async create() {
+        createCalled = true;
+      },
+    },
+  };
+
+  await assert.rejects(
+    createGoal(
+      userId,
+      { goalType: "GAIN_WEIGHT", targetWeightKg: 80, targetDate: null },
+      db
+    ),
+    (error) =>
+      error.code === "INVALID_GOAL_TARGET" &&
+      error.statusCode === 409 &&
+      error.details?.[0]?.field === "targetWeightKg"
+  );
+  assert.equal(createCalled, false);
+});
+
+test("a weight-loss goal rejects a target at or above current weight", async () => {
+  const db = {
+    progressEntry: {
+      async findFirst() {
+        return { weightKg: "90.00" };
+      },
+    },
+  };
+
+  await assert.rejects(
+    createGoal(
+      userId,
+      { goalType: "LOSE_WEIGHT", targetWeightKg: 95, targetDate: null },
+      db
+    ),
+    (error) => error.code === "INVALID_GOAL_TARGET"
+  );
+});
+
 test("activation conflict keeps the saved goal as a draft", async () => {
   let updateCalled = false;
   const draft = goalRecord();
@@ -119,6 +167,35 @@ test("activation marks a draft active and sets its start time", async () => {
 
   assert.equal(result.status, "ACTIVE");
   assert.ok(result.startedAt instanceof Date);
+});
+
+test("activation rejects a weight-goal draft made stale by current progress", async () => {
+  let updateCalled = false;
+  const draft = goalRecord({
+    goalType: "GAIN_WEIGHT",
+    targetWeightKg: "95.00",
+  });
+  const db = {
+    goal: {
+      async findFirst({ where }) {
+        return where.id ? draft : null;
+      },
+      async updateManyAndReturn() {
+        updateCalled = true;
+      },
+    },
+    progressEntry: {
+      async findFirst() {
+        return { weightKg: "100.00" };
+      },
+    },
+  };
+
+  await assert.rejects(
+    activateGoal(userId, goalId, db),
+    (error) => error.code === "INVALID_GOAL_TARGET"
+  );
+  assert.equal(updateCalled, false);
 });
 
 test("the database race safeguard returns the same activation conflict", async () => {
@@ -267,6 +344,11 @@ test("a draft can change goal type with a compatible target", async () => {
         return [goalRecord(args.data)];
       },
     },
+    progressEntry: {
+      async findFirst() {
+        return { weightKg: "80.00" };
+      },
+    },
   };
 
   const result = await updateGoal(
@@ -286,6 +368,34 @@ test("a draft can change goal type with a compatible target", async () => {
   });
   assert.equal(result.goalType, "GAIN_WEIGHT");
   assert.equal(result.targetWeightKg, 90);
+});
+
+test("a draft edit rejects a target in the wrong direction", async () => {
+  let updateCalled = false;
+  const db = {
+    goal: {
+      async findFirst() {
+        return goalRecord({
+          goalType: "GAIN_WEIGHT",
+          targetWeightKg: "95.00",
+        });
+      },
+      async updateManyAndReturn() {
+        updateCalled = true;
+      },
+    },
+    progressEntry: {
+      async findFirst() {
+        return { weightKg: "90.00" };
+      },
+    },
+  };
+
+  await assert.rejects(
+    updateGoal(userId, goalId, { targetWeightKg: 85 }, db),
+    (error) => error.code === "INVALID_GOAL_TARGET"
+  );
+  assert.equal(updateCalled, false);
 });
 
 test("an incompatible target-only edit requests a goal type change", async () => {

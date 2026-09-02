@@ -183,6 +183,16 @@ export class GoalTypeChangeRequiredError extends AppError {
   }
 }
 
+export class InvalidGoalTargetError extends AppError {
+  constructor(
+    message = "Target weight does not match the selected goal type."
+  ) {
+    super(message, 409, "INVALID_GOAL_TARGET", [
+      { field: "targetWeightKg", message },
+    ]);
+  }
+}
+
 export class InvalidActionConfirmationError extends AppError {
   constructor(message = "Password confirmation failed.") {
     super(message, 403, "INVALID_PASSWORD_CONFIRMATION");

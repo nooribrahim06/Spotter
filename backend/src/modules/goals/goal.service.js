@@ -4,17 +4,45 @@ import {
   GoalNotFoundError,
   GoalTypeChangeRequiredError,
   InvalidGoalStateError,
+  ProfileIncompleteError,
 } from "../../middlewares/errorHandling.js";
 import * as goalsRepo from "./goal.repository.js";
 import * as progressRepo from "../progress/progress.repository.js";
+import {
+  assertGoalTargetDirection,
+  requiresDirectionalTarget,
+} from "./goal.rules.js";
 import {
   serializeActiveGoal,
   serializeGoal,
 } from "./goal.serializer.js";
 
+async function assertGoalTargetAgainstCurrentWeight(userId, goal, db) {
+  if (!requiresDirectionalTarget(goal.goalType)) return;
+
+  const currentProgress =
+    await progressRepo.findLatestProgressEntryByUserId(userId, db);
+
+  if (currentProgress?.weightKg == null) {
+    throw new ProfileIncompleteError([
+      {
+        field: "currentWeightKg",
+        message: "Record your current weight before setting a weight goal.",
+      },
+    ]);
+  }
+
+  assertGoalTargetDirection({
+    goalType: goal.goalType,
+    targetWeightKg: goal.targetWeightKg,
+    currentWeightKg: currentProgress.weightKg,
+  });
+}
+
 export async function createGoal(userId, data, db) {
   // Saving and activation are deliberately separate. A user may save a draft
   // while another goal is active and return to it later without losing data.
+  await assertGoalTargetAgainstCurrentWeight(userId, data, db);
   const newGoal = await goalsRepo.createGoal(userId, data, db);
   return serializeGoal(newGoal);
 }
@@ -27,6 +55,9 @@ export async function activateGoal(userId, goalId, db) {
 
   const activeGoal = await goalsRepo.findActiveGoalByUserId(userId, db);
   if (activeGoal) throw new ActiveGoalExistsError();
+
+  // A draft may have become stale if the user's latest recorded weight changed.
+  await assertGoalTargetAgainstCurrentWeight(userId, goal, db);
 
   const activatedGoal = await goalsRepo.activateGoal(goalId, userId, db);
   return serializeGoal(activatedGoal);
@@ -102,6 +133,12 @@ export async function updateGoal(userId, goalId, data, db) {
       "Set targetWeightKg to null when changing to a maintenance goal."
     );
   }
+
+  await assertGoalTargetAgainstCurrentWeight(
+    userId,
+    { goalType: nextGoalType, targetWeightKg: nextTargetWeight },
+    db
+  );
 
   const updatedGoal = await goalsRepo.updateGoal(
     goalId,

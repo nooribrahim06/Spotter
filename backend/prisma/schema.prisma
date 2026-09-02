@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 // Prisma communicates with PostgreSQL using DATABASE_URL from prisma.config.ts.
@@ -142,6 +143,18 @@ enum BodyMeasurementType {
   RIGHT_CALF
 }
 
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum MealItemType {
+  FOOD
+  RECIPE
+}
+
 // A registered Spotter account. One user can have multiple active device sessions.
 model User {
   id           String @id @default(uuid()) @db.Uuid
@@ -177,6 +190,9 @@ model User {
   userProfile         UserProfile?
   bodyProfile         BodyProfile?
   coachingPreferences CoachingPreferences?
+  createdFoods        Food[]               @relation("UserCreatedFoods")
+  createdRecipes      Recipe[]             @relation("UserCreatedRecipes")
+  meals               Meal[]
 
   @@map("users")
 }
@@ -316,16 +332,17 @@ model Goal {
   // Nullable so normal future goals can coexist. Only one goal per user can
   // carry `true`, which makes onboarding saves safe to repeat.
   isOnboardingGoal Boolean?   @map("is_onboarding_goal")
-  startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
-  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
-  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  startedAt        DateTime?  @map("started_at") @db.Timestamptz(6)
+  completedAt      DateTime?  @map("completed_at") @db.Timestamptz(6)
+  cancelledAt      DateTime?  @map("cancelled_at") @db.Timestamptz(6)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   progressEntries ProgressEntry[]
 
   @@unique([userId, isOnboardingGoal])
+  @@unique([userId], map: "one_active_goal_per_user", where: raw("status = 'ACTIVE'"))
   @@index([userId])
   @@index([userId, status])
   @@map("goals")
@@ -544,4 +561,172 @@ model CoachingPreferences {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("coaching_preferences")
+}
+
+/// A selectable food in Spotter's nutrition catalog.
+/// Global catalog foods have no creator. User-created foods remain private to
+/// their creator. Nutrition is normalized to 100 grams for consistent logging.
+model Food {
+  id String @id @default(uuid()) @db.Uuid
+
+  nameEn   String  @map("name_en") @db.VarChar(200)
+  nameAr   String? @map("name_ar") @db.VarChar(200)
+  aliases  Json?   @db.JsonB
+  category String? @db.VarChar(100)
+
+  caloriesPer100g          Decimal @map("calories_per_100g") @db.Decimal(8, 2)
+  proteinGramsPer100g      Decimal @map("protein_grams_per_100g") @db.Decimal(8, 2)
+  carbohydrateGramsPer100g Decimal @map("carbohydrate_grams_per_100g") @db.Decimal(8, 2)
+  fatGramsPer100g          Decimal @map("fat_grams_per_100g") @db.Decimal(8, 2)
+
+  /// NULL identifies a global Spotter catalog food.
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  source           String? @db.VarChar(50)
+  externalSourceId String? @map("external_source_id") @db.VarChar(100)
+  sourceVersion    String? @map("source_version") @db.VarChar(50)
+
+  /// Catalog entries are archived rather than deleted so historical references
+  /// and imported identifiers remain stable.
+  isActive   Boolean   @default(true) @map("is_active")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdByUser User? @relation("UserCreatedFoods", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  recipeIngredients RecipeIngredient[]
+  mealItems         MealItem[]
+
+  @@unique([source, externalSourceId])
+  @@index([nameEn])
+  @@index([category])
+  @@index([createdByUserId])
+  @@index([isActive])
+  @@map("foods")
+}
+
+/// A reusable prepared dish made from Food records. Nutrition per serving is
+/// calculated and cached by the service whenever the recipe changes.
+model Recipe {
+  id String @id @default(uuid()) @db.Uuid
+
+  nameEn  String  @map("name_en") @db.VarChar(200)
+  nameAr  String? @map("name_ar") @db.VarChar(200)
+  aliases Json?   @db.JsonB
+
+  /// NULL identifies a global Spotter recipe.
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  servings        Decimal @db.Decimal(6, 2)
+  totalYieldGrams Decimal @map("total_yield_grams") @db.Decimal(10, 2)
+
+  caloriesPerServing          Decimal @map("calories_per_serving") @db.Decimal(10, 2)
+  proteinGramsPerServing      Decimal @map("protein_grams_per_serving") @db.Decimal(10, 2)
+  carbohydrateGramsPerServing Decimal @map("carbohydrate_grams_per_serving") @db.Decimal(10, 2)
+  fatGramsPerServing          Decimal @map("fat_grams_per_serving") @db.Decimal(10, 2)
+
+  countryCode String? @map("country_code") @db.VarChar(2)
+  cuisine     String? @db.VarChar(100)
+
+  instructions String? @db.Text
+
+  source           String? @db.VarChar(50)
+  externalSourceId String? @map("external_source_id") @db.VarChar(100)
+  sourceVersion    String? @map("source_version") @db.VarChar(50)
+
+  isActive   Boolean   @default(true) @map("is_active")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdByUser User? @relation("UserCreatedRecipes", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  ingredients RecipeIngredient[]
+  mealItems   MealItem[]
+
+  @@unique([source, externalSourceId])
+  @@index([nameEn])
+  @@index([createdByUserId])
+  @@index([countryCode])
+  @@index([cuisine])
+  @@index([isActive])
+  @@map("recipes")
+}
+
+/// One food and its gram quantity inside a recipe.
+model RecipeIngredient {
+  id String @id @default(uuid()) @db.Uuid
+
+  recipeId String @map("recipe_id") @db.Uuid
+  foodId   String @map("food_id") @db.Uuid
+
+  quantityGrams Decimal @map("quantity_grams") @db.Decimal(10, 2)
+  orderIndex    Int     @map("order_index")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  food   Food   @relation(fields: [foodId], references: [id], onDelete: Restrict)
+
+  @@unique([recipeId, orderIndex])
+  @@index([recipeId])
+  @@index([foodId])
+  @@map("recipe_ingredients")
+}
+
+/// A breakfast, lunch, dinner, or snack actually logged by a user.
+model Meal {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+
+  mealType   MealType @map("meal_type")
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  notes      String?  @db.VarChar(1000)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items MealItem[]
+
+  @@index([userId, occurredAt])
+  @@map("meals")
+}
+
+/// One food or recipe consumed inside a Meal. Nutrition and the display name
+/// are snapshots so edits to catalog data never rewrite the user's history.
+model MealItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  mealId String @map("meal_id") @db.Uuid
+
+  itemType MealItemType @map("item_type")
+  foodId   String?      @map("food_id") @db.Uuid
+  recipeId String?      @map("recipe_id") @db.Uuid
+
+  itemName String @map("item_name") @db.VarChar(200)
+
+  /// FOOD items use quantityGrams; RECIPE items use servings.
+  quantityGrams Decimal? @map("quantity_grams") @db.Decimal(10, 2)
+  servings      Decimal? @db.Decimal(8, 2)
+
+  calories          Decimal @db.Decimal(10, 2)
+  proteinGrams      Decimal @map("protein_grams") @db.Decimal(10, 2)
+  carbohydrateGrams Decimal @map("carbohydrate_grams") @db.Decimal(10, 2)
+  fatGrams          Decimal @map("fat_grams") @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  meal   Meal    @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  food   Food?   @relation(fields: [foodId], references: [id], onDelete: Restrict)
+  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: Restrict)
+
+  @@index([mealId])
+  @@index([foodId])
+  @@index([recipeId])
+  @@map("meal_items")
 }

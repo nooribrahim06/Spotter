@@ -9,6 +9,7 @@ import {
   findOnboardingGoalByUserId,
   upsertOnboardingGoal,
 } from "../goals/goal.repository.js";
+import { assertGoalTargetDirection } from "../goals/goal.rules.js";
 import {
   findBodyProfileByUserId,
   findUserProfileByUserId,
@@ -215,6 +216,12 @@ async function saveStep2(userId, data) {
       : null,
   };
 
+  assertGoalTargetDirection({
+    goalType: goalData.goalType,
+    targetWeightKg: goalData.targetWeightKg,
+    currentWeightKg: bodyProfile.startingWeightKg,
+  });
+
   // activity belongs to BodyProfile, while the current goal belongs to Goal.
   // the transaction keeps those two tables and the user step in sync.
   await prisma.$transaction(async (tx) => {
@@ -297,6 +304,13 @@ export async function completeOnboarding(userId) {
 
     const details = incompleteDetails(publicProfile, bodyProfile, goal);
     if (details.length > 0) throw new OnboardingIncompleteError(details);
+
+    // Step 1 can be edited after step 2, so compare again before activation.
+    assertGoalTargetDirection({
+      goalType: goal.goalType,
+      targetWeightKg: goal.targetWeightKg,
+      currentWeightKg: bodyProfile.startingWeightKg,
+    });
 
     const completedAt = new Date();
 

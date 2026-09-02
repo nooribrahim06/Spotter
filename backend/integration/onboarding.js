@@ -96,12 +96,28 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
   assert.equal(step1.response.status, 200);
   assert.equal(step1.body.currentStep, 2);
 
+  const invalidGainGoal = await onboardingRequest("", {
+    method: "PATCH",
+    body: JSON.stringify({
+      step: 2,
+      data: {
+        goalType: "GAIN_WEIGHT",
+        targetWeightKg: 80,
+        activityLevel: "MODERATELY_ACTIVE",
+      },
+    }),
+  });
+  assert.equal(invalidGainGoal.response.status, 409);
+  assert.equal(invalidGainGoal.body.code, "INVALID_GOAL_TARGET");
+  assert.equal(invalidGainGoal.body.details[0].field, "targetWeightKg");
+
   const step2 = await onboardingRequest("", {
     method: "PATCH",
     body: JSON.stringify({
       step: 2,
       data: {
-        goalType: "IMPROVE_FITNESS",
+        goalType: "GAIN_WEIGHT",
+        targetWeightKg: 90,
         activityLevel: "MODERATELY_ACTIVE",
       },
     }),
@@ -113,10 +129,43 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
   assert.equal(resumed.body.status, "in_progress");
   assert.equal(resumed.body.data.firstName, "Noor");
   assert.equal(resumed.body.data.lastName, "Ibrahim");
-  assert.equal(resumed.body.data.targetWeightKg, null);
+  assert.equal(resumed.body.data.targetWeightKg, 90);
   assert.equal(resumed.body.data.targetDate, null);
 
   const editedStep1 = await onboardingRequest("", {
+    method: "PATCH",
+    body: JSON.stringify({
+      step: 1,
+      data: {
+        firstName: "Nour",
+        lastName: "Ibrahim",
+        birthYear: 2000,
+        birthMonth: 6,
+        birthDay: 15,
+        adultConfirmed: true,
+        sexForCalculation: "MALE",
+        preferredUnitSystem: "METRIC",
+        heightCm: 180,
+        currentWeightKg: 95,
+      },
+    }),
+  });
+  assert.equal(editedStep1.body.currentStep, 3);
+
+  const renamedProfile = await prisma.userProfile.findUnique({
+    where: { userId: user.id },
+    select: { firstName: true, lastName: true },
+  });
+  assert.equal(renamedProfile.firstName, "Nour");
+  assert.equal(renamedProfile.lastName, "Ibrahim");
+
+  const staleGoalCompletion = await onboardingRequest("/complete", {
+    method: "POST",
+  });
+  assert.equal(staleGoalCompletion.response.status, 409);
+  assert.equal(staleGoalCompletion.body.code, "INVALID_GOAL_TARGET");
+
+  const correctedStep1 = await onboardingRequest("", {
     method: "PATCH",
     body: JSON.stringify({
       step: 1,
@@ -134,14 +183,8 @@ test("onboarding saves, resumes, edits, and completes idempotently", async () =>
       },
     }),
   });
-  assert.equal(editedStep1.body.currentStep, 3);
-
-  const renamedProfile = await prisma.userProfile.findUnique({
-    where: { userId: user.id },
-    select: { firstName: true, lastName: true },
-  });
-  assert.equal(renamedProfile.firstName, "Nour");
-  assert.equal(renamedProfile.lastName, "Ibrahim");
+  assert.equal(correctedStep1.response.status, 200);
+  assert.equal(correctedStep1.body.currentStep, 3);
 
   const [completed, completedAgain] = await Promise.all([
     // run two requests together to prove the completion claim really prevents
