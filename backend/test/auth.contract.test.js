@@ -387,11 +387,31 @@ test("all current food routes require a valid access token", async () => {
 test("all recipe routes require a valid access token", async () => {
   const id = "11111111-1111-4111-8111-111111111111";
   const requests = [
+    ["GET", "/api/recipes"],
     ["GET", "/api/recipes/search?search=chicken"],
     ["GET", `/api/recipes/${id}`],
     ["POST", "/api/recipes"],
     ["PUT", `/api/recipes/${id}`],
     ["DELETE", `/api/recipes/${id}`],
+  ];
+
+  for (const [method, path] of requests) {
+    const response = await fetch(baseUrl + path, { method });
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "INVALID_ACCESS_TOKEN");
+  }
+});
+
+test("all five meal routes require a valid access token", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const requests = [
+    ["GET", "/api/meals?date=2026-08-31"],
+    ["GET", `/api/meals/${id}`],
+    ["POST", "/api/meals"],
+    ["PUT", `/api/meals/${id}`],
+    ["DELETE", `/api/meals/${id}`],
   ];
 
   for (const [method, path] of requests) {

@@ -8,6 +8,7 @@ process.env.DATABASE_URL =
 const {
   createRecipe,
   deleteRecipe,
+  getRecipeOverview,
   getRecipeById,
   replaceRecipe,
   searchRecipes,
@@ -93,6 +94,59 @@ function recipeRecord(overrides = {}) {
     ...overrides,
   };
 }
+
+test("recipe overview contains recent and user-created recipes only", async () => {
+  let recentQuery;
+  let customQuery;
+  const globalRecipe = recipeRecord({ createdByUserId: null });
+  const customRecipe = recipeRecord();
+  const db = {
+    mealItem: {
+      async findMany(args) {
+        recentQuery = args;
+        return [{ recipe: globalRecipe }];
+      },
+    },
+    recipe: {
+      async findMany(args) {
+        customQuery = args;
+        return [customRecipe];
+      },
+    },
+  };
+
+  const result = await getRecipeOverview(userId, db);
+
+  assert.deepEqual(recentQuery.where, {
+    itemType: "RECIPE",
+    recipeId: { not: null },
+    meal: { userId },
+    recipe: {
+      is: {
+        isActive: true,
+        OR: [
+          { createdByUserId: null },
+          { createdByUserId: userId },
+        ],
+      },
+    },
+  });
+  assert.deepEqual(recentQuery.distinct, ["recipeId"]);
+  assert.equal(recentQuery.take, 10);
+  assert.deepEqual(customQuery.where, {
+    createdByUserId: userId,
+    isActive: true,
+  });
+  assert.equal(customQuery.take, 20);
+  assert.equal(result.recentRecipes.length, 1);
+  assert.equal(result.recentRecipes[0].canEdit, false);
+  assert.equal(result.customRecipes.length, 1);
+  assert.equal(result.customRecipes[0].canEdit, true);
+  assert.equal(
+    "createdByUserId" in result.customRecipes[0],
+    false
+  );
+});
 
 test("recipe search is private, filtered, stable, and paginated", async () => {
   let findQuery;

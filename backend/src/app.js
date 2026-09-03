@@ -4,6 +4,7 @@ import express from "express";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { foodRoutes } from "./modules/foods/food.routes.js";
 import { goalRoutes } from "./modules/goals/goal.routes.js";
+import { mealRoutes } from "./modules/meals/meal.routes.js";
 import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
 import { profileRoutes } from "./modules/profiles/profile.routes.js";
 import { recipeRoutes } from "./modules/recipes/recipe.routes.js";
@@ -46,6 +47,8 @@ app.use("/api/goals", goalRoutes);
 app.use("/api/foods", foodRoutes);
 
 app.use("/api/recipes", recipeRoutes);
+
+app.use("/api/meals", mealRoutes);
 
 // must be global error handler, because it will catch all errors from all routes,
 //  and it must be after all routes, because it will catch errors from all routes.

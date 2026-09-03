@@ -153,6 +153,7 @@ enum MealType {
 enum MealItemType {
   FOOD
   RECIPE
+  QUICK
 }
 
 // A registered Spotter account. One user can have multiple active device sessions.
@@ -709,15 +710,16 @@ model MealItem {
   recipeId String?      @map("recipe_id") @db.Uuid
 
   itemName String @map("item_name") @db.VarChar(200)
+  orderIndex Int @map("order_index")
 
   /// FOOD items use quantityGrams; RECIPE items use servings.
   quantityGrams Decimal? @map("quantity_grams") @db.Decimal(10, 2)
   servings      Decimal? @db.Decimal(8, 2)
 
   calories          Decimal @db.Decimal(10, 2)
-  proteinGrams      Decimal @map("protein_grams") @db.Decimal(10, 2)
-  carbohydrateGrams Decimal @map("carbohydrate_grams") @db.Decimal(10, 2)
-  fatGrams          Decimal @map("fat_grams") @db.Decimal(10, 2)
+  proteinGrams      Decimal? @map("protein_grams") @db.Decimal(10, 2)
+  carbohydrateGrams Decimal? @map("carbohydrate_grams") @db.Decimal(10, 2)
+  fatGrams          Decimal? @map("fat_grams") @db.Decimal(10, 2)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -728,5 +730,6 @@ model MealItem {
   @@index([mealId])
   @@index([foodId])
   @@index([recipeId])
+  @@unique([mealId, orderIndex])
   @@map("meal_items")
 }

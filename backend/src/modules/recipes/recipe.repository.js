@@ -44,11 +44,66 @@ const recipeDetailSelect = {
   },
 };
 
+const RECENT_RECIPE_LIMIT = 10;
+const CUSTOM_RECIPE_LIMIT = 20;
+
 function visibleRecipeWhere(userId) {
   return {
     isActive: true,
     OR: [{ createdByUserId: null }, { createdByUserId: userId }],
   };
+}
+
+export async function findRecentRecipesForUser(
+  userId,
+  db = prisma
+) {
+  try {
+    return await db.mealItem.findMany({
+      where: {
+        itemType: "RECIPE",
+        recipeId: { not: null },
+        meal: { userId },
+        recipe: {
+          is: visibleRecipeWhere(userId),
+        },
+      },
+      select: {
+        recipe: { select: recipeSummarySelect },
+      },
+      distinct: ["recipeId"],
+      orderBy: [
+        { meal: { occurredAt: "desc" } },
+        { createdAt: "desc" },
+      ],
+      take: RECENT_RECIPE_LIMIT,
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while finding recent recipes."
+    );
+  }
+}
+
+export async function findCustomRecipesForUser(
+  userId,
+  db = prisma
+) {
+  try {
+    return await db.recipe.findMany({
+      where: {
+        createdByUserId: userId,
+        isActive: true,
+      },
+      select: recipeSummarySelect,
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      take: CUSTOM_RECIPE_LIMIT,
+    });
+  } catch {
+    throw new databaseError(
+      "Database error occurred while finding custom recipes."
+    );
+  }
 }
 
 export async function searchRecipes(

@@ -5,6 +5,11 @@ function privateResponse(res, statusCode, data) {
   return res.status(statusCode).json({ data });
 }
 
+export async function getRecipeOverviewController(req, res) {
+  const result = await recipeService.getRecipeOverview(req.user.id);
+  return privateResponse(res, 200, result);
+}
+
 export async function searchRecipesController(req, res) {
   const result = await recipeService.searchRecipes(
     req.user.id,

@@ -26,6 +26,22 @@ function buildRecipeData(input, totals) {
   };
 }
 
+export async function getRecipeOverview(userId, db) {
+  const [recentRecipeItems, customRecipes] = await Promise.all([
+    recipeRepository.findRecentRecipesForUser(userId, db),
+    recipeRepository.findCustomRecipesForUser(userId, db),
+  ]);
+
+  return {
+    recentRecipes: recentRecipeItems.map(({ recipe }) =>
+      serializeRecipeSummary(recipe, userId)
+    ),
+    customRecipes: customRecipes.map((recipe) =>
+      serializeRecipeSummary(recipe, userId)
+    ),
+  };
+}
+
 async function prepareRecipe(userId, input, db) {
   const foodIds = input.ingredients.map((ingredient) => ingredient.foodId);
   const foods = await recipeRepository.findAccessibleIngredientFoods(

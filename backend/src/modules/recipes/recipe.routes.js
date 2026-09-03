@@ -20,6 +20,8 @@ export const recipeRoutes = express.Router();
 
 recipeRoutes.use(express.json({ limit: "100kb" }), authenticateToken);
 
+recipeRoutes.get("/", controller.getRecipeOverviewController);
+
 // Static routes must precede /:recipeId so "search" is never parsed as an ID.
 recipeRoutes.get(
   "/search",

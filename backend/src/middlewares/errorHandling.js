@@ -219,3 +219,38 @@ export class InvalidRecipeIngredientsError extends AppError {
     ]);
   }
 }
+
+// =========== Meal Errors ===========
+export class MealNotFoundError extends AppError {
+  constructor(message = "Meal not found.") {
+    super(message, 404, "MEAL_NOT_FOUND");
+  }
+}
+
+export class InvalidMealItemsError extends AppError {
+  constructor(message = "One or more selected meal items are unavailable.") {
+    super(message, 409, "INVALID_MEAL_ITEMS", [
+      {
+        field: "items",
+        message:
+          "Foods and recipes must be active, global, or owned by your account.",
+      },
+    ]);
+  }
+}
+
+export class MealTimezoneRequiredError extends AppError {
+  constructor(message = "Set your timezone before filtering meals by date.") {
+    super(message, 409, "MEAL_TIMEZONE_REQUIRED", [
+      { field: "timezone", message },
+    ]);
+  }
+}
+
+export class InvalidMealTimeError extends AppError {
+  constructor(message = "A meal cannot be logged in the future.") {
+    super(message, 409, "INVALID_MEAL_TIME", [
+      { field: "occurredAt", message },
+    ]);
+  }
+}
