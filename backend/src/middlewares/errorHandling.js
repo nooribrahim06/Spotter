@@ -254,3 +254,24 @@ export class InvalidMealTimeError extends AppError {
     ]);
   }
 }
+
+// =========== Workout Errors ===========
+export class ActiveWorkoutExistsError extends AppError {
+  constructor(message = "Complete or cancel your active workout first.") {
+    super(message, 409, "ACTIVE_WORKOUT_EXISTS");
+  }
+}
+
+export class InvalidWorkoutStartTimeError extends AppError {
+  constructor(message = "A workout cannot start in the future.") {
+    super(message, 409, "INVALID_WORKOUT_START_TIME", [
+      { field: "startedAt", message },
+    ]);
+  }
+}
+
+export class WorkoutNotFoundError extends AppError {
+  constructor(message = "Workout not found.") {
+    super(message, 404, "WORKOUT_NOT_FOUND");
+  }
+}

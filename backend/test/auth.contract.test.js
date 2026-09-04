@@ -422,3 +422,21 @@ test("all five meal routes require a valid access token", async () => {
     assert.equal(body.code, "INVALID_ACCESS_TOKEN");
   }
 });
+
+test("all current workout routes require a valid access token", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const requests = [
+    ["POST", "/api/workouts"],
+    ["GET", "/api/workouts/active"],
+    ["GET", "/api/workouts/history"],
+    ["GET", `/api/workouts/${id}`],
+  ];
+
+  for (const [method, path] of requests) {
+    const response = await fetch(baseUrl + path, { method });
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "INVALID_ACCESS_TOKEN");
+  }
+});

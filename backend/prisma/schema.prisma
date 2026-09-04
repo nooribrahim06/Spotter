@@ -156,6 +156,61 @@ enum MealItemType {
   QUICK
 }
 
+// ================= those are about the exercise and the workout plan ==============
+
+enum ExerciseType {
+  STRENGTH
+  CARDIO
+  MOBILITY
+}
+
+enum ExerciseBodyPart {
+  ARMS
+  BACK
+  CALVES
+  CHEST
+  CORE
+  FULL_BODY
+  GLUTES
+  LEGS
+  SHOULDERS
+}
+
+enum ExerciseDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  EXPERT
+}
+
+enum ExerciseForce {
+  PUSH
+  PULL
+  STATIC
+}
+
+enum ExerciseMechanic {
+  COMPOUND
+  ISOLATION
+}
+
+enum ExerciseEquipment {
+  BARBELL
+  BODY_WEIGHT
+  CABLE
+  DUMBBELL
+  JUMP_ROPE
+  KETTLEBELL
+  MACHINE
+  RESISTANCE_BAND
+}
+
+// ================= work outs enum =================
+enum WorkoutStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 // A registered Spotter account. One user can have multiple active device sessions.
 model User {
   id           String @id @default(uuid()) @db.Uuid
@@ -194,6 +249,7 @@ model User {
   createdFoods        Food[]               @relation("UserCreatedFoods")
   createdRecipes      Recipe[]             @relation("UserCreatedRecipes")
   meals               Meal[]
+  workouts            Workout[]
 
   @@map("users")
 }
@@ -709,14 +765,14 @@ model MealItem {
   foodId   String?      @map("food_id") @db.Uuid
   recipeId String?      @map("recipe_id") @db.Uuid
 
-  itemName String @map("item_name") @db.VarChar(200)
-  orderIndex Int @map("order_index")
+  itemName   String @map("item_name") @db.VarChar(200)
+  orderIndex Int    @map("order_index")
 
   /// FOOD items use quantityGrams; RECIPE items use servings.
   quantityGrams Decimal? @map("quantity_grams") @db.Decimal(10, 2)
   servings      Decimal? @db.Decimal(8, 2)
 
-  calories          Decimal @db.Decimal(10, 2)
+  calories          Decimal  @db.Decimal(10, 2)
   proteinGrams      Decimal? @map("protein_grams") @db.Decimal(10, 2)
   carbohydrateGrams Decimal? @map("carbohydrate_grams") @db.Decimal(10, 2)
   fatGrams          Decimal? @map("fat_grams") @db.Decimal(10, 2)
@@ -727,9 +783,107 @@ model MealItem {
   food   Food?   @relation(fields: [foodId], references: [id], onDelete: Restrict)
   recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: Restrict)
 
+  @@unique([mealId, orderIndex])
   @@index([mealId])
   @@index([foodId])
   @@index([recipeId])
-  @@unique([mealId, orderIndex])
   @@map("meal_items")
+}
+
+model Exercise {
+  id String @id @default(uuid()) @db.Uuid
+
+  slug String @unique @db.VarChar(120)
+  name String @db.VarChar(160)
+
+  exerciseType ExerciseType       @map("exercise_type")
+  bodyPart     ExerciseBodyPart   @map("body_part")
+  difficulty   ExerciseDifficulty
+
+  force    ExerciseForce?
+  mechanic ExerciseMechanic?
+
+  equipment ExerciseEquipment
+
+  primaryMuscles   String[] @default([]) @map("primary_muscles")
+  secondaryMuscles String[] @default([]) @map("secondary_muscles")
+  instructions     String[] @default([])
+
+  // These contain storage/CDN identifiers, not complete URLs.
+  imageKey String? @map("image_key") @db.VarChar(255)
+  gifKey   String? @map("gif_key") @db.VarChar(255)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  //A list of all workout exercises that use this exercise.
+  workoutExercises WorkoutExercise[]
+
+  @@index([bodyPart])
+  @@index([equipment])
+  @@index([difficulty])
+  @@index([exerciseType])
+  @@index([isActive])
+  @@map("exercises")
+}
+
+model Workout {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+
+  name   String?       @db.VarChar(160)
+  status WorkoutStatus @default(IN_PROGRESS)
+
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  durationMinutes Int? @map("duration_minutes")
+
+  estimatedCaloriesBurned Int? @map("estimated_calories_burned")
+
+  notes String? @db.VarChar(1000)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  exercises WorkoutExercise[]
+
+  @@index([userId, startedAt])
+  @@index([userId, status])
+  @@map("workouts")
+}
+
+model WorkoutExercise {
+  id String @id @default(uuid()) @db.Uuid
+
+  workoutId  String @map("workout_id") @db.Uuid
+  exerciseId String @map("exercise_id") @db.Uuid
+
+  exerciseOrder Int @map("exercise_order") @db.SmallInt
+
+  // Strength summary: 3 sets × 10 reps × 40 kg.
+  setsCount  Int?     @map("sets_count") @db.SmallInt
+  repsPerSet Int?     @map("reps_per_set") @db.SmallInt
+  weightKg   Decimal? @map("weight_kg") @db.Decimal(6, 2)
+
+  // Cardio and mobility summary.
+  durationSeconds Int?     @map("duration_seconds")
+  distanceMeters  Decimal? @map("distance_meters") @db.Decimal(10, 2)
+
+  completed Boolean @default(false)
+  notes     String? @db.VarChar(1000)
+
+  workout Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@unique([workoutId, exerciseOrder])
+  @@index([workoutId])
+  @@index([exerciseId])
+  @@map("workout_exercises")
 }

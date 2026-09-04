@@ -14,6 +14,7 @@ The versions below were observed in the local project on 2026-08-26.
 | [cookie-parser](./cookie-parser/README.md) | 1.4.7 | HTTP cookie parsing for refresh tokens |
 | [express-rate-limit](./express-rate-limit/README.md) | 8.6.2 | Abuse protection across all auth endpoints |
 | [Zod](./zod/README.md) | 4.4.3 | Request-body validation and transformation |
+| [csv-parse](./csv-parse/README.md) | 7.0.2 | Parsing large CSV catalog data during database seeding |
 | [jsonwebtoken](./jsonwebtoken/README.md) | 9.0.3 | Access token signing and verification (JWT) |
 | [bcryptjs](./bcryptjs/README.md) | 3.0.3 | Password hashing |
 | [Node.js Crypto](./node-crypto/README.md) | Built into Node.js | Token generation, SHA-256 hashing, and AES-256-GCM queue encryption |

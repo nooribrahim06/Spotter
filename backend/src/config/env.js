@@ -42,6 +42,11 @@ const envSchema = z
 
     EMAIL_USER: z.string().email(),
     EMAIL_APP_PASSWORD: z.string().min(1),
+
+    // Cloudinary credentials used by the backend for signed uploads.
+    CLOUD_NAME: z.string().trim().min(1),
+    CLOUD_API_KEY: z.string().trim().min(1),
+    CLOUD_API_SECRET: z.string().trim().min(1),
   })
   .superRefine((env, context) => {
     if (
