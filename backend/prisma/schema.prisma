@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client"
-  output          = "../generated/prisma"
+  provider        = "prisma-client-js"
   previewFeatures = ["partialIndexes"]
 }
 
@@ -9,14 +8,14 @@ datasource db {
   provider = "postgresql"
 }
 
-// Roles allowed in the users table.
+// ENUMS
+
 enum UserRole {
   USER
   COACH
   ADMIN
 }
 
-// ================ those enums all about the user profile and the user role in the system ================
 enum OnboardingStatus {
   NOT_STARTED
   IN_PROGRESS
@@ -55,7 +54,94 @@ enum GoalStatus {
   CANCELLED
 }
 
-// ============= those are about body profile, nutrition profile, training profile and coaching preferences ==============
+enum DesiredPace {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+}
+
+enum GoalPriority {
+  APPEARANCE
+  HEALTH
+  PERFORMANCE
+  STRENGTH
+  ENDURANCE
+}
+
+enum PerformanceType {
+  RUN_DISTANCE
+  RUN_TIME
+  EXERCISE_STRENGTH
+  REPETITIONS
+  SPORT_PERFORMANCE
+  CUSTOM
+}
+
+enum PlanStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+enum BodyMeasurementType {
+  WAIST
+  ABDOMEN
+  CHEST
+  HIPS
+  NECK
+  SHOULDERS
+  LEFT_UPPER_ARM
+  RIGHT_UPPER_ARM
+  LEFT_FOREARM
+  RIGHT_FOREARM
+  LEFT_THIGH
+  RIGHT_THIGH
+  LEFT_CALF
+  RIGHT_CALF
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum MealItemType {
+  FOOD
+  RECIPE
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum CoachingStyle {
+  SUPPORTIVE
+  BALANCED
+  DIRECT
+}
+
+enum ExplanationLevel {
+  CONCISE
+  NORMAL
+  DETAILED
+}
+
+enum MotivationStyle {
+  ENCOURAGING
+  ACCOUNTABILITY
+  FACT_BASED
+  MINIMAL
+}
+
+enum CheckinFrequency {
+  DAILY
+  FEW_TIMES_PER_WEEK
+  WEEKLY
+}
+
 enum NutritionPlanStyle {
   EXACT_MEALS
   FLEXIBLE_MEALS
@@ -97,124 +183,68 @@ enum TrainingEnvironment {
   MIXED
 }
 
-enum CoachingStyle {
-  SUPPORTIVE
-  BALANCED
-  DIRECT
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
 }
 
-enum ExplanationLevel {
-  CONCISE
-  NORMAL
-  DETAILED
+enum FormulaType {
+  MIFFLIN_ST_JEOR
+  HARRIS_BENEDICT
+  CUSTOM
 }
 
-enum MotivationStyle {
-  ENCOURAGING
-  ACCOUNTABILITY
-  FACT_BASED
-  MINIMAL
-}
+// GROUP 1: AUTH & IDENTITY
 
-enum CheckinFrequency {
-  DAILY
-  FEW_TIMES_PER_WEEK
-  WEEKLY
-}
-
-enum BodyMeasurementType {
-  WAIST
-  ABDOMEN
-  CHEST
-  HIPS
-  NECK
-  SHOULDERS
-
-  LEFT_UPPER_ARM
-  RIGHT_UPPER_ARM
-
-  LEFT_FOREARM
-  RIGHT_FOREARM
-
-  LEFT_THIGH
-  RIGHT_THIGH
-
-  LEFT_CALF
-  RIGHT_CALF
-}
-
-enum MealType {
-  BREAKFAST
-  LUNCH
-  DINNER
-  SNACK
-}
-
-enum MealItemType {
-  FOOD
-  RECIPE
-}
-
-// A registered Spotter account. One user can have multiple active device sessions.
 model User {
-  id           String @id @default(uuid()) @db.Uuid
-  email        String @unique @db.VarChar(254)
-  username     String @unique @db.VarChar(30)
-  passwordHash String @map("password_hash") @db.VarChar(100)
+  id                           String            @id @default(uuid()) @db.Uuid
+  email                        String            @unique @db.VarChar(254)
+  username                     String            @unique @db.VarChar(30)
+  passwordHash                 String            @map("password_hash") @db.VarChar(100)
+  language                     String            @default("en") @db.VarChar(10)
+  country                      String?           @db.VarChar(2)
+  role                         UserRole          @default(USER)
+  emailVerified                Boolean           @default(false) @map("email_verified")
+  verifyToken                  String?           @unique @map("verify_token") @db.VarChar(64)
+  verifyTokenExpiresAt         DateTime?         @map("verify_token_expires_at") @db.Timestamptz(6)
+  onboardingStatus             OnboardingStatus  @default(NOT_STARTED) @map("onboarding_status")
+  onboardingStep               Int?              @default(1) @map("onboarding_step") @db.SmallInt
+  fitnessOnboardingCompletedAt DateTime?         @map("fitness_onboarding_completed_at") @db.Timestamptz(6)
+  timezone                     String?           @db.VarChar(64)
+  createdAt                    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  language String   @default("en") @db.VarChar(10)
-  country  String?  @db.VarChar(2)
-  role     UserRole @default(USER)
-
-  emailVerified        Boolean   @default(false) @map("email_verified")
-  verifyToken          String?   @unique @map("verify_token") @db.VarChar(64)
-  verifyTokenExpiresAt DateTime? @map("verify_token_expires_at") @db.Timestamptz(6)
-
-  // Profile and onboarding fields
-  // onboardingStep is 1 or 2 while forms are being saved, 3 for the review
-  // screen, and null after completion because there is no next onboarding step.
-  onboardingStatus             OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
-  onboardingStep               Int?             @default(1) @map("onboarding_step")
-  fitnessOnboardingCompletedAt DateTime?        @map("fitness_onboarding_completed_at") @db.Timestamptz(6)
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  /// IANA timezone such as "Africa/Cairo". It may be unknown at signup, but it
-  /// must be collected before creating calendar-based plans or reminders.
-  timezone String? @db.VarChar(64)
-
-  // Reverse side of AuthSession.user. This field does not create a database column.
   authSessions        AuthSession[]
-  goals               Goal[]
   userProfile         UserProfile?
   bodyProfile         BodyProfile?
   coachingPreferences CoachingPreferences?
-  createdFoods        Food[]               @relation("UserCreatedFoods")
-  createdRecipes      Recipe[]             @relation("UserCreatedRecipes")
+  goals               Goal[]
+  nutritionTargets    NutritionTarget[]
+  userPlans           UserPlan[]
   meals               Meal[]
+  workoutLogs         WorkoutLog[]
+  dailySummaries      DailySummary[]
+  aiConversations     AiConversation[]
+  createdFoods        Food[]             @relation("UserCreatedFoods")
+  createdRecipes      Recipe[]           @relation("UserCreatedRecipes")
 
   @@map("users")
 }
 
-// One authenticated login/device. Revoking it invalidates its complete token family.
 model AuthSession {
-  id       String @id @default(uuid()) @db.Uuid
-  userId   String @map("user_id") @db.Uuid
-  familyId String @unique @default(uuid()) @map("family_id") @db.Uuid
-
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  familyId   String    @unique @default(uuid()) @map("family_id") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
   lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(6)
   revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  userAgent  String?   @map("user_agent") @db.VarChar(512)
+  ipHash     String?   @map("ip_hash") @db.VarChar(64)
 
-  // Optional device metadata. Store only bounded, non-sensitive values.
-  userAgent String? @map("user_agent") @db.VarChar(512)
-  ipHash    String? @map("ip_hash") @db.VarChar(64)
-
-  // Deleting a user removes their sessions; deleting a session removes its tokens.
-  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokens RefreshToken[]
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens     RefreshToken[]
 
   @@index([userId])
   @@index([expiresAt])
@@ -222,27 +252,19 @@ model AuthSession {
   @@map("auth_sessions")
 }
 
-// A hashed opaque refresh token. Raw refresh tokens must never be stored.
 model RefreshToken {
-  id        String @id @default(uuid()) @db.Uuid
-  sessionId String @map("session_id") @db.Uuid
+  id                String    @id @default(uuid()) @db.Uuid
+  sessionId         String    @map("session_id") @db.Uuid
+  tokenHash         String    @unique @map("token_hash") @db.VarChar(64)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt        DateTime? @map("consumed_at") @db.Timestamptz(6)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(6)
+  replacedByTokenId String?   @unique @map("replaced_by_token_id") @db.Uuid
 
-  // SHA-256 encoded as hexadecimal is exactly 64 characters.
-  tokenHash String @unique @map("token_hash") @db.VarChar(64)
-
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
-  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
-  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
-
-  // After rotation, the old token points to the new token that replaced it.
-  replacedByTokenId String? @unique @map("replaced_by_token_id") @db.Uuid
-
-  session AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  // Self-relation representing: old token -> replacement token.
-  replacedBy RefreshToken? @relation("RefreshTokenRotation", fields: [replacedByTokenId], references: [id], onDelete: SetNull)
-  replaces   RefreshToken? @relation("RefreshTokenRotation")
+  session           AuthSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  replacedBy        RefreshToken? @relation("RefreshTokenRotation", fields: [replacedByTokenId], references: [id])
+  replaces          RefreshToken? @relation("RefreshTokenRotation")
 
   @@index([sessionId])
   @@index([expiresAt])
@@ -250,142 +272,238 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-/// Public/display identity. This model may eventually be visible to friends;
-/// private fitness, nutrition, and health data must never be added here.
+// GROUP 2: USER PROFILE & BODY DATA
+
 model UserProfile {
-  userId String @id @map("user_id") @db.Uuid
+  userId          String   @id @map("user_id") @db.Uuid
+  firstName       String   @map("first_name") @db.VarChar(40)
+  lastName        String   @map("last_name") @db.VarChar(40)
+  displayName     String?  @map("display_name") @db.VarChar(50)
+  bio             String?  @db.VarChar(500)
+  profilePhotoKey String?  @map("profile_photo_key") @db.VarChar(512)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  /// A UserProfile is created only after onboarding supplies both names, so the
-  /// fields are required inside this otherwise optional one-to-one profile.
-  firstName   String  @map("first_name") @db.VarChar(40)
-  lastName    String  @map("last_name") @db.VarChar(40)
-  displayName String? @map("display_name") @db.VarChar(50)
-  bio         String? @db.VarChar(500)
-
-  /// Object-storage key only. The API creates a temporary/public URL when it
-  /// returns the profile; image bytes and expiring URLs are never persisted.
-  profilePhotoKey String? @map("profile_photo_key") @db.VarChar(512)
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
 
-/// Private, stable facts used for calorie calculations and plan generation.
-/// Current measurements do not belong here; they live in ProgressEntry.
 model BodyProfile {
-  userId String @id @map("user_id") @db.Uuid
+  userId              String            @id @map("user_id") @db.Uuid
+  birthDate           DateTime          @map("birth_date") @db.Date
+  adultConfirmedAt    DateTime          @map("adult_confirmed_at") @db.Timestamptz(6)
+  sexForCalculation   SexForCalculation @map("sex_for_calculation")
+  preferredUnitSystem UnitSystem        @map("preferred_unit_system")
+  heightCm            Decimal           @map("height_cm") @db.Decimal(5, 2)
+  startingWeightKg    Decimal           @map("starting_weight_kg") @db.Decimal(6, 2)
+  activityLevel       ActivityLevel?    @map("activity_level")
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  /// Stored as a PostgreSQL date so age is calculated accurately without time
-  /// zone shifts. Age itself must never be stored because it becomes stale.
-  birthDate DateTime @map("birth_date") @db.Date
-
-  /// Audit timestamp proving the adult confirmation was accepted. It should not
-  /// be rewritten during normal profile edits.
-  adultConfirmedAt DateTime @map("adult_confirmed_at") @db.Timestamptz(6)
-
-  /// Physiological input used only by formulas that require it. It is separate
-  /// from any future social gender field.
-  sexForCalculation SexForCalculation @map("sex_for_calculation")
-
-  /// Values are stored canonically in metric units; preferredUnitSystem controls
-  /// only how the API/UI accepts and displays them.
-  preferredUnitSystem UnitSystem @map("preferred_unit_system")
-
-  heightCm Decimal @map("height_cm") @db.Decimal(5, 2)
-
-  /// Immutable onboarding baseline. Current weight is read from the newest
-  /// ProgressEntry and must never overwrite this value.
-  startingWeightKg Decimal @map("starting_weight_kg") @db.Decimal(6, 2)
-
-  /// Used for initial calorie expenditure estimates. It stays nullable until
-  /// the activity step is completed.
-  activityLevel ActivityLevel? @map("activity_level")
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  healthProfile    HealthProfile?
-  nutritionProfile NutritionProfile?
-  trainingProfile  TrainingProfile?
-  progressEntries  ProgressEntry[]
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  healthProfile       HealthProfile?
+  nutritionProfile    NutritionProfile?
+  trainingProfile     TrainingProfile?
+  progressEntries     ProgressEntry[]
 
   @@map("body_profiles")
 }
 
+model HealthProfile {
+  bodyProfileId                 String   @id @map("body_profile_id") @db.Uuid
+  healthConditions              Json?    @map("health_conditions") @db.JsonB
+  movementLimitations           Json?    @map("movement_limitations") @db.JsonB
+  specialPlanningStates         Json?    @map("special_planning_states") @db.JsonB
+  requiresProfessionalClearance Boolean  @default(false) @map("requires_professional_clearance")
+  safetyNotes                   String?  @map("safety_notes") @db.VarChar(2000)
+  createdAt                     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bodyProfile                   BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+
+  @@map("health_profiles")
+}
+
+model NutritionProfile {
+  bodyProfileId          String              @id @map("body_profile_id") @db.Uuid
+  dietaryPreferenceCodes Json?               @map("dietary_preference_codes") @db.JsonB
+  foodAllergies          Json?               @map("food_allergies") @db.JsonB
+  foodIntolerances       Json?               @map("food_intolerances") @db.JsonB
+  foodPreferences        Json?               @map("food_preferences") @db.JsonB
+  mealsPerDay            Int?                @map("meals_per_day") @db.SmallInt
+  snacksPerDay           Int?                @map("snacks_per_day") @db.SmallInt
+  planStyle              NutritionPlanStyle? @map("plan_style")
+  cookingSkill           CookingSkill?       @map("cooking_skill")
+  maxMealPrepMinutes     Int?                @map("max_meal_prep_minutes") @db.SmallInt
+  kitchenAccess          KitchenAccess?      @map("kitchen_access")
+  foodBudgetLevel        FoodBudgetLevel?    @map("food_budget_level")
+  createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bodyProfile            BodyProfile         @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+
+  @@map("nutrition_profiles")
+}
+
+model TrainingProfile {
+  bodyProfileId                 String                   @id @map("body_profile_id") @db.Uuid
+  overallExperienceLevel        TrainingExperienceLevel? @map("overall_experience_level")
+  resistanceTrainingLevel       TrainingExperienceLevel? @map("resistance_training_level")
+  cardioTrainingLevel           TrainingExperienceLevel? @map("cardio_training_level")
+  currentlyTrainingConsistently Boolean?                 @map("currently_training_consistently")
+  trainingDaysPerWeek           Int?                     @map("training_days_per_week") @db.SmallInt
+  availableDays                 Json?                    @map("available_days") @db.JsonB
+  preferredSessionMinutes       Int?                     @map("preferred_session_minutes") @db.SmallInt
+  trainingEnvironment           TrainingEnvironment?     @map("training_environment")
+  availableEquipment            Json?                    @map("available_equipment") @db.JsonB
+  preferredTrainingStyles       Json?                    @map("preferred_training_styles") @db.JsonB
+  preferredCardioType           String?                  @map("preferred_cardio_type") @db.VarChar(100)
+  averageSleepMinutes           Int?                     @map("average_sleep_minutes") @db.SmallInt
+  sleepQuality                  Int?                     @map("sleep_quality") @db.SmallInt
+  typicalStressLevel            Int?                     @map("typical_stress_level") @db.SmallInt
+  createdAt                     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bodyProfile                   BodyProfile              @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+
+  @@map("training_profiles")
+}
+
+model CoachingPreferences {
+  userId             String            @id @map("user_id") @db.Uuid
+  coachingStyle      CoachingStyle     @default(BALANCED) @map("coaching_style")
+  explanationLevel   ExplanationLevel  @default(NORMAL) @map("explanation_level")
+  motivationStyle    MotivationStyle?  @map("motivation_style")
+  checkinFrequency   CheckinFrequency? @map("checkin_frequency")
+  proactiveCoaching  Boolean           @default(false) @map("proactive_coaching")
+  workoutReminders   Boolean           @default(false) @map("workout_reminders")
+  nutritionReminders Boolean           @default(false) @map("nutrition_reminders")
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coaching_preferences")
+}
+
+// GROUP 3: GOALS & NUTRITION TARGETS
+
 model Goal {
-  // goalType represents the user's current onboarding goal. later goals are
-  // gonna use new rows instead of overwriting this history.
-  id     String @id @default(uuid()) @db.Uuid
-  userId String @map("user_id") @db.Uuid
+  id                      String                  @id @default(uuid()) @db.Uuid
+  userId                  String                  @map("user_id") @db.Uuid
+  goalType                GoalType                @map("goal_type")
+  secondaryGoalType       GoalType?               @map("secondary_goal_type")
+  targetWeightKg          Decimal?                @map("target_weight_kg") @db.Decimal(6, 2)
+  targetBodyFatPercentage Decimal?                @map("target_body_fat_percentage") @db.Decimal(5, 2)
+  targetDate              DateTime?               @map("target_date") @db.Date
+  desiredPace             DesiredPace?            @map("desired_pace")
+  priority                GoalPriority?
+  motivationText          String?                 @map("motivation_text") @db.Text
+  status                  GoalStatus              @default(DRAFT)
+  isOnboardingGoal        Boolean?                @map("is_onboarding_goal")
+  startedAt               DateTime?               @map("started_at") @db.Timestamptz(6)
+  completedAt             DateTime?               @map("completed_at") @db.Timestamptz(6)
+  cancelledAt             DateTime?               @map("cancelled_at") @db.Timestamptz(6)
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  goalType       GoalType  @map("goal_type")
-  targetWeightKg Decimal?  @map("target_weight_kg") @db.Decimal(6, 2)
-  targetDate     DateTime? @map("target_date") @db.Date
-
-  status           GoalStatus @default(DRAFT)
-  // Nullable so normal future goals can coexist. Only one goal per user can
-  // carry `true`, which makes onboarding saves safe to repeat.
-  isOnboardingGoal Boolean?   @map("is_onboarding_goal")
-  startedAt        DateTime?  @map("started_at") @db.Timestamptz(6)
-  completedAt      DateTime?  @map("completed_at") @db.Timestamptz(6)
-  cancelledAt      DateTime?  @map("cancelled_at") @db.Timestamptz(6)
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  progressEntries ProgressEntry[]
+  user                    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  measurementTargets      GoalMeasurementTarget[]
+  performanceTargets      GoalPerformanceTarget[]
+  historyContext          UserGoalHistoryContext?
+  nutritionTargets        NutritionTarget[]
+  progressEntries         ProgressEntry[]
 
   @@unique([userId, isOnboardingGoal])
-  @@unique([userId], map: "one_active_goal_per_user", where: raw("status = 'ACTIVE'"))
   @@index([userId])
   @@index([userId, status])
+  // Prisma doesn't natively support raw where clauses in indexes using the standard syntax.
+  // We represent the active goal constraint here:
+  @@unique([userId], map: "one_active_goal_per_user")
   @@map("goals")
 }
 
-/// One private body snapshot at a specific time. BodyProfile owns the history,
-/// so deleting the body profile also deletes its measurements.
+model GoalMeasurementTarget {
+  id              String              @id @default(uuid()) @db.Uuid
+  goalId          String              @map("goal_id") @db.Uuid
+  measurementType BodyMeasurementType @map("measurement_type")
+  targetValueCm   Decimal             @map("target_value_cm") @db.Decimal(6, 2)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  goal            Goal                @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("goal_measurement_targets")
+}
+
+model GoalPerformanceTarget {
+  id              String          @id @default(uuid()) @db.Uuid
+  goalId          String          @map("goal_id") @db.Uuid
+  performanceType PerformanceType @map("performance_type")
+  exerciseId      String?         @map("exercise_id") @db.Uuid
+  targetValue     Decimal?        @map("target_value") @db.Decimal(8, 2)
+  targetUnit      String?         @map("target_unit") @db.VarChar(50)
+  description     String?         @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  goal            Goal            @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  exercise        Exercise?       @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+
+  @@map("goal_performance_targets")
+}
+
+model UserGoalHistoryContext {
+  id             String   @id @default(uuid()) @db.Uuid
+  goalId         String   @unique @map("goal_id") @db.Uuid
+  triedBefore    Boolean  @map("tried_before")
+  whatWorked     String?  @map("what_worked") @db.Text
+  whatDidNotWork String?  @map("what_did_not_work") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  goal           Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("user_goal_history_context")
+}
+
+model NutritionTarget {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @map("user_id") @db.Uuid
+  goalId         String      @map("goal_id") @db.Uuid
+  targetCalories Int         @map("target_calories")
+  targetProtein  Decimal     @map("target_protein") @db.Decimal(5, 2)
+  targetCarbs    Decimal     @map("target_carbs") @db.Decimal(5, 2)
+  targetFat      Decimal     @map("target_fat") @db.Decimal(5, 2)
+  customTargets  Boolean     @default(false) @map("custom_targets")
+  formulaUsed    FormulaType @default(MIFFLIN_ST_JEOR) @map("formula_used")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal           Goal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@map("nutrition_targets")
+}
+
+// GROUP 4: PROGRESS
+
 model ProgressEntry {
-  id String @id @default(uuid()) @db.Uuid
+  id                   String                @id @default(uuid()) @db.Uuid
+  bodyProfileId        String                @map("body_profile_id") @db.Uuid
+  goalId               String?               @map("goal_id") @db.Uuid
+  recordedAt           DateTime              @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  weightKg             Decimal               @map("weight_kg") @db.Decimal(6, 2)
+  bodyFatPercentage    Decimal?              @map("body_fat_percentage") @db.Decimal(5, 2)
+  skeletalMuscleMassKg Decimal?              @map("skeletal_muscle_mass_kg") @db.Decimal(6, 2)
+  restingHeartRateBpm  Int?                  @map("resting_heart_rate_bpm") @db.SmallInt
+  notes                String?               @db.VarChar(1000)
+  isInitialForGoal     Boolean?              @map("is_initial_for_goal")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  bodyProfileId String  @map("body_profile_id") @db.Uuid
-  goalId        String? @map("goal_id") @db.Uuid
-
-  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
-
-  /// Main source of truth for current weight. The latest entry is the value used
-  /// by the profile response, calculations, and the AI coach.
-  weightKg Decimal @map("weight_kg") @db.Decimal(6, 2)
-
-  /// Optional body-composition estimate. Useful for observing a trend, but the
-  /// AI must not treat a consumer-device estimate as a medical measurement.
-  bodyFatPercentage Decimal? @map("body_fat_percentage") @db.Decimal(5, 2)
-
-  /// Optional lean-mass estimate from a consistent scale or body scan. It helps
-  /// distinguish weight loss from possible muscle loss, but trend consistency
-  /// matters more than a single reading.
-  skeletalMuscleMassKg Decimal? @map("skeletal_muscle_mass_kg") @db.Decimal(6, 2)
-
-  /// Optional resting pulse. Long-term changes can provide recovery and general
-  /// cardiovascular context; it is not a diagnosis or a substitute for a doctor.
-  restingHeartRateBpm Int? @map("resting_heart_rate_bpm") @db.SmallInt
-
-  notes String? @db.VarChar(1000)
-
-  // PostgreSQL permits multiple NULL values while allowing one TRUE initial entry per goal.
-  isInitialForGoal Boolean? @map("is_initial_for_goal")
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
-  goal        Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
-
-  measurements ProgressMeasurement[]
+  bodyProfile          BodyProfile           @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
+  goal                 Goal?                 @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  measurements         ProgressMeasurement[]
 
   @@unique([goalId, isInitialForGoal])
   @@index([bodyProfileId, recordedAt])
@@ -393,211 +511,108 @@ model ProgressEntry {
   @@map("progress_entries")
 }
 
-/// A repeatable circumference measurement attached to one progress check-in.
-/// All values are stored canonically in centimeters even when the UI shows inches.
 model ProgressMeasurement {
-  id              String @id @default(uuid()) @db.Uuid
-  progressEntryId String @map("progress_entry_id") @db.Uuid
-
+  id              String              @id @default(uuid()) @db.Uuid
+  progressEntryId String              @map("progress_entry_id") @db.Uuid
   measurementType BodyMeasurementType @map("measurement_type")
   valueCm         Decimal             @map("value_cm") @db.Decimal(6, 2)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  progressEntry ProgressEntry @relation(fields: [progressEntryId], references: [id], onDelete: Cascade)
+  progressEntry   ProgressEntry       @relation(fields: [progressEntryId], references: [id], onDelete: Cascade)
 
   @@unique([progressEntryId, measurementType])
   @@index([progressEntryId])
   @@map("progress_measurements")
 }
 
-/// Private health and safety constraints for plan generation. A missing JSON
-/// value means "not answered"; an empty array means "answered: none".
-model HealthProfile {
-  // bodyProfileId is both the PK and FK.
-  // This guarantees one HealthProfile per BodyProfile.
-  bodyProfileId String @id @map("body_profile_id") @db.Uuid
+// GROUP 5: PLAN TEMPLATES
 
-  // Flexible health information supplied by the user.
-  //
-  // Example:
-  // [
-  //   {
-  //     "code": "DIABETES",
-  //     "notes": "Type 2",
-  //     "active": true
-  //   }
-  // ]
-  healthConditions Json? @map("health_conditions") @db.JsonB
+model PlanTemplate {
+  id              String                  @id @default(uuid()) @db.Uuid
+  name            String                  @db.VarChar(255)
+  description     String?                 @db.Text
+  goalType        GoalType                @map("goal_type")
+  experienceLevel TrainingExperienceLevel @map("experience_level")
+  durationWeeks   Int?                    @map("duration_weeks") @db.SmallInt
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Physical restrictions relevant to exercise selection.
-  //
-  // Example:
-  // [
-  //   {
-  //     "bodyRegion": "RIGHT_KNEE",
-  //     "trigger": "DEEP_SQUAT",
-  //     "notes": "Pain below parallel"
-  //   }
-  // ]
-  movementLimitations Json? @map("movement_limitations") @db.JsonB
+  days            PlanTemplateDay[]
+  userPlans       UserPlan[]
 
-  // Special situations that may require a different planning pathway.
-  //
-  // Example:
-  // [
-  //   {
-  //     "code": "POST_SURGERY",
-  //     "notes": "Doctor restricted heavy lifting"
-  //   }
-  // ]
-  specialPlanningStates Json? @map("special_planning_states") @db.JsonB
-
-  // If true, automatic plan generation should stop or become restricted
-  // until the user receives appropriate professional clearance.
-  requiresProfessionalClearance Boolean @default(false) @map("requires_professional_clearance")
-
-  // General user-provided safety information that does not fit elsewhere.
-  safetyNotes String? @map("safety_notes") @db.VarChar(2000)
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
-
-  @@map("health_profiles")
+  @@map("plan_templates")
 }
 
-/// Private nutrition constraints and preferences. Safety information such as
-/// allergies remains distinct from soft preferences such as liked foods.
-model NutritionProfile {
-  bodyProfileId String @id @map("body_profile_id") @db.Uuid
+model PlanTemplateDay {
+  id             String                 @id @default(uuid()) @db.Uuid
+  planTemplateId String                 @map("plan_template_id") @db.Uuid
+  dayNumber      Int                    @map("day_number") @db.SmallInt
+  name           String                 @db.VarChar(100)
+  notes          String?                @db.Text
 
-  /// Array of validated codes such as VEGAN, VEGETARIAN, or HALAL.
-  dietaryPreferenceCodes Json? @map("dietary_preference_codes") @db.JsonB
+  planTemplate   PlanTemplate           @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
+  exercises      PlanTemplateExercise[]
 
-  /// Structured arrays. Allergy objects may include code, severity, and notes;
-  /// preference objects may include food name/code and liked/disliked/avoided.
-  foodAllergies    Json? @map("food_allergies") @db.JsonB
-  foodIntolerances Json? @map("food_intolerances") @db.JsonB
-  foodPreferences  Json? @map("food_preferences") @db.JsonB
-
-  /// Meal counts and practical constraints make the generated plan realistic,
-  /// rather than optimizing nutrition while ignoring the user's daily routine.
-  mealsPerDay  Int? @map("meals_per_day") @db.SmallInt
-  snacksPerDay Int? @map("snacks_per_day") @db.SmallInt
-
-  planStyle          NutritionPlanStyle? @map("plan_style")
-  cookingSkill       CookingSkill?       @map("cooking_skill")
-  maxMealPrepMinutes Int?                @map("max_meal_prep_minutes") @db.SmallInt
-  kitchenAccess      KitchenAccess?      @map("kitchen_access")
-  foodBudgetLevel    FoodBudgetLevel?    @map("food_budget_level")
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
-
-  @@map("nutrition_profiles")
+  @@map("plan_template_days")
 }
 
-/// Private training baseline, availability, equipment, and recovery baseline.
-/// Daily sleep/stress observations will later belong to DailyLog; these values
-/// describe the user's typical starting point for the first plan.
-model TrainingProfile {
-  bodyProfileId String @id @map("body_profile_id") @db.Uuid
+model PlanTemplateExercise {
+  id                String          @id @default(uuid()) @db.Uuid
+  planTemplateDayId String          @map("plan_template_day_id") @db.Uuid
+  exerciseId        String          @map("exercise_id") @db.Uuid
+  exerciseOrder     Int             @map("exercise_order") @db.SmallInt
+  targetSets        Int             @map("target_sets") @db.SmallInt
+  targetReps        String          @map("target_reps") @db.VarChar(50)
+  restSeconds       Int?            @map("rest_seconds") @db.SmallInt
+  notes             String?         @db.Text
 
-  overallExperienceLevel  TrainingExperienceLevel? @map("overall_experience_level")
-  resistanceTrainingLevel TrainingExperienceLevel? @map("resistance_training_level")
-  cardioTrainingLevel     TrainingExperienceLevel? @map("cardio_training_level")
+  planTemplateDay   PlanTemplateDay @relation(fields: [planTemplateDayId], references: [id], onDelete: Cascade)
+  exercise          Exercise        @relation(fields: [exerciseId], references: [id])
 
-  currentlyTrainingConsistently Boolean? @map("currently_training_consistently")
-  trainingDaysPerWeek           Int?     @map("training_days_per_week") @db.SmallInt
-  /// Structured days may include day number, availability, preferred status,
-  /// and optional time limits. The service must validate the JSON shape.
-  availableDays                 Json?    @map("available_days") @db.JsonB
-
-  preferredSessionMinutes Int?                 @map("preferred_session_minutes") @db.SmallInt
-  trainingEnvironment     TrainingEnvironment? @map("training_environment")
-
-  /// Structured equipment may include code, quantity, and maximum weight.
-  availableEquipment Json? @map("available_equipment") @db.JsonB
-
-  /// Array of validated style codes used to choose enjoyable workouts.
-  preferredTrainingStyles Json?   @map("preferred_training_styles") @db.JsonB
-  preferredCardioType     String? @map("preferred_cardio_type") @db.VarChar(100)
-
-  averageSleepMinutes Int? @map("average_sleep_minutes") @db.SmallInt
-  sleepQuality        Int? @map("sleep_quality") @db.SmallInt
-  typicalStressLevel  Int? @map("typical_stress_level") @db.SmallInt
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  bodyProfile BodyProfile @relation(fields: [bodyProfileId], references: [userId], onDelete: Cascade)
-
-  @@map("training_profiles")
+  @@map("plan_template_exercises")
 }
 
-/// Controls how the AI coach communicates. Communication defaults are safe,
-/// while proactive behavior and reminders require explicit user consent.
-model CoachingPreferences {
-  userId String @id @map("user_id") @db.Uuid
+model UserPlan {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  planTemplateId String       @map("plan_template_id") @db.Uuid
+  startDate      DateTime     @map("start_date") @db.Date
+  status         PlanStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  coachingStyle    CoachingStyle     @default(BALANCED) @map("coaching_style")
-  explanationLevel ExplanationLevel  @default(NORMAL) @map("explanation_level")
-  motivationStyle  MotivationStyle?  @map("motivation_style")
-  checkinFrequency CheckinFrequency? @map("checkin_frequency")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planTemplate   PlanTemplate @relation(fields: [planTemplateId], references: [id])
+  workoutLogs    WorkoutLog[]
 
-  /// Opt-in fields: never enable unsolicited coaching or reminders by default.
-  proactiveCoaching  Boolean @default(false) @map("proactive_coaching")
-  workoutReminders   Boolean @default(false) @map("workout_reminders")
-  nutritionReminders Boolean @default(false) @map("nutrition_reminders")
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("coaching_preferences")
+  @@index([userId])
+  @@map("user_plans")
 }
 
-/// A selectable food in Spotter's nutrition catalog.
-/// Global catalog foods have no creator. User-created foods remain private to
-/// their creator. Nutrition is normalized to 100 grams for consistent logging.
+// GROUP 6: REFERENCE DATA
+
 model Food {
-  id String @id @default(uuid()) @db.Uuid
+  id                       String             @id @default(uuid()) @db.Uuid
+  nameEn                   String             @map("name_en") @db.VarChar(200)
+  nameAr                   String?            @map("name_ar") @db.VarChar(200)
+  aliases                  Json?              @db.JsonB
+  category                 String?            @db.VarChar(100)
+  caloriesPer100g          Decimal            @map("calories_per_100g") @db.Decimal(8, 2)
+  proteinGramsPer100g      Decimal            @map("protein_grams_per_100g") @db.Decimal(8, 2)
+  carbohydrateGramsPer100g Decimal            @map("carbohydrate_grams_per_100g") @db.Decimal(8, 2)
+  fatGramsPer100g          Decimal            @map("fat_grams_per_100g") @db.Decimal(8, 2)
+  createdByUserId          String?            @map("created_by_user_id") @db.Uuid
+  source                   String?            @db.VarChar(50)
+  externalSourceId         String?            @map("external_source_id") @db.VarChar(100)
+  sourceVersion            String?            @map("source_version") @db.VarChar(50)
+  isActive                 Boolean            @default(true) @map("is_active")
+  archivedAt               DateTime?          @map("archived_at") @db.Timestamptz(6)
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  nameEn   String  @map("name_en") @db.VarChar(200)
-  nameAr   String? @map("name_ar") @db.VarChar(200)
-  aliases  Json?   @db.JsonB
-  category String? @db.VarChar(100)
-
-  caloriesPer100g          Decimal @map("calories_per_100g") @db.Decimal(8, 2)
-  proteinGramsPer100g      Decimal @map("protein_grams_per_100g") @db.Decimal(8, 2)
-  carbohydrateGramsPer100g Decimal @map("carbohydrate_grams_per_100g") @db.Decimal(8, 2)
-  fatGramsPer100g          Decimal @map("fat_grams_per_100g") @db.Decimal(8, 2)
-
-  /// NULL identifies a global Spotter catalog food.
-  createdByUserId String? @map("created_by_user_id") @db.Uuid
-
-  source           String? @db.VarChar(50)
-  externalSourceId String? @map("external_source_id") @db.VarChar(100)
-  sourceVersion    String? @map("source_version") @db.VarChar(50)
-
-  /// Catalog entries are archived rather than deleted so historical references
-  /// and imported identifiers remain stable.
-  isActive   Boolean   @default(true) @map("is_active")
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  createdByUser User? @relation("UserCreatedFoods", fields: [createdByUserId], references: [id], onDelete: Cascade)
-
-  recipeIngredients RecipeIngredient[]
-  mealItems         MealItem[]
+  createdByUser            User?              @relation("UserCreatedFoods", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  recipeIngredients        RecipeIngredient[]
+  mealItems                MealItem[]
 
   @@unique([source, externalSourceId])
   @@index([nameEn])
@@ -607,45 +622,32 @@ model Food {
   @@map("foods")
 }
 
-/// A reusable prepared dish made from Food records. Nutrition per serving is
-/// calculated and cached by the service whenever the recipe changes.
 model Recipe {
-  id String @id @default(uuid()) @db.Uuid
+  id                          String             @id @default(uuid()) @db.Uuid
+  nameEn                      String             @map("name_en") @db.VarChar(200)
+  nameAr                      String?            @map("name_ar") @db.VarChar(200)
+  aliases                     Json?              @db.JsonB
+  createdByUserId             String?            @map("created_by_user_id") @db.Uuid
+  servings                    Decimal            @db.Decimal(6, 2)
+  totalYieldGrams             Decimal            @map("total_yield_grams") @db.Decimal(10, 2)
+  caloriesPerServing          Decimal            @map("calories_per_serving") @db.Decimal(10, 2)
+  proteinGramsPerServing      Decimal            @map("protein_grams_per_serving") @db.Decimal(10, 2)
+  carbohydrateGramsPerServing Decimal            @map("carbohydrate_grams_per_serving") @db.Decimal(10, 2)
+  fatGramsPerServing          Decimal            @map("fat_grams_per_serving") @db.Decimal(10, 2)
+  countryCode                 String?            @map("country_code") @db.VarChar(2)
+  cuisine                     String?            @db.VarChar(100)
+  instructions                String?            @db.Text
+  source                      String?            @db.VarChar(50)
+  externalSourceId            String?            @map("external_source_id") @db.VarChar(100)
+  sourceVersion               String?            @map("source_version") @db.VarChar(50)
+  isActive                    Boolean            @default(true) @map("is_active")
+  archivedAt                  DateTime?          @map("archived_at") @db.Timestamptz(6)
+  createdAt                   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  nameEn  String  @map("name_en") @db.VarChar(200)
-  nameAr  String? @map("name_ar") @db.VarChar(200)
-  aliases Json?   @db.JsonB
-
-  /// NULL identifies a global Spotter recipe.
-  createdByUserId String? @map("created_by_user_id") @db.Uuid
-
-  servings        Decimal @db.Decimal(6, 2)
-  totalYieldGrams Decimal @map("total_yield_grams") @db.Decimal(10, 2)
-
-  caloriesPerServing          Decimal @map("calories_per_serving") @db.Decimal(10, 2)
-  proteinGramsPerServing      Decimal @map("protein_grams_per_serving") @db.Decimal(10, 2)
-  carbohydrateGramsPerServing Decimal @map("carbohydrate_grams_per_serving") @db.Decimal(10, 2)
-  fatGramsPerServing          Decimal @map("fat_grams_per_serving") @db.Decimal(10, 2)
-
-  countryCode String? @map("country_code") @db.VarChar(2)
-  cuisine     String? @db.VarChar(100)
-
-  instructions String? @db.Text
-
-  source           String? @db.VarChar(50)
-  externalSourceId String? @map("external_source_id") @db.VarChar(100)
-  sourceVersion    String? @map("source_version") @db.VarChar(50)
-
-  isActive   Boolean   @default(true) @map("is_active")
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  createdByUser User? @relation("UserCreatedRecipes", fields: [createdByUserId], references: [id], onDelete: Cascade)
-
-  ingredients RecipeIngredient[]
-  mealItems   MealItem[]
+  createdByUser               User?              @relation("UserCreatedRecipes", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  ingredients                 RecipeIngredient[]
+  mealItems                   MealItem[]
 
   @@unique([source, externalSourceId])
   @@index([nameEn])
@@ -656,20 +658,16 @@ model Recipe {
   @@map("recipes")
 }
 
-/// One food and its gram quantity inside a recipe.
 model RecipeIngredient {
-  id String @id @default(uuid()) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
+  recipeId      String   @map("recipe_id") @db.Uuid
+  foodId        String   @map("food_id") @db.Uuid
+  quantityGrams Decimal  @map("quantity_grams") @db.Decimal(10, 2)
+  orderIndex    Int      @map("order_index")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  recipeId String @map("recipe_id") @db.Uuid
-  foodId   String @map("food_id") @db.Uuid
-
-  quantityGrams Decimal @map("quantity_grams") @db.Decimal(10, 2)
-  orderIndex    Int     @map("order_index")
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  food   Food   @relation(fields: [foodId], references: [id], onDelete: Restrict)
+  recipe        Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  food          Food     @relation(fields: [foodId], references: [id], onDelete: Restrict)
 
   @@unique([recipeId, orderIndex])
   @@index([recipeId])
@@ -677,56 +675,180 @@ model RecipeIngredient {
   @@map("recipe_ingredients")
 }
 
-/// A breakfast, lunch, dinner, or snack actually logged by a user.
+model Exercise {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  name               String                  @db.VarChar(255)
+  bodyPart           String                  @map("body_part") @db.VarChar(100)
+  targetMuscle       String                  @map("target_muscle") @db.VarChar(100)
+  equipment          String                  @db.VarChar(100)
+  gifUrl             String?                 @map("gif_url") @db.VarChar(512)
+  instructions       Json                    @db.JsonB
+  source             String                  @default("EXTERNAL") @db.VarChar(50)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  planExercises      PlanTemplateExercise[]
+  workoutExercises   WorkoutExercise[]
+  performanceTargets GoalPerformanceTarget[]
+
+  /// Full-text search and pg_trgm indexes will be created via raw SQL
+  @@map("exercises")
+}
+
+// GROUP 7: MEAL TRACKING
+
 model Meal {
-  id String @id @default(uuid()) @db.Uuid
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  mealType   MealType   @map("meal_type")
+  occurredAt DateTime   @map("occurred_at") @db.Timestamptz(6)
+  notes      String?    @db.VarChar(1000)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  userId String @map("user_id") @db.Uuid
-
-  mealType   MealType @map("meal_type")
-  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
-  notes      String?  @db.VarChar(1000)
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items MealItem[]
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items      MealItem[]
 
   @@index([userId, occurredAt])
   @@map("meals")
 }
 
-/// One food or recipe consumed inside a Meal. Nutrition and the display name
-/// are snapshots so edits to catalog data never rewrite the user's history.
 model MealItem {
-  id String @id @default(uuid()) @db.Uuid
+  id                String       @id @default(uuid()) @db.Uuid
+  mealId            String       @map("meal_id") @db.Uuid
+  itemType          MealItemType @map("item_type")
+  foodId            String?      @map("food_id") @db.Uuid
+  recipeId          String?      @map("recipe_id") @db.Uuid
+  itemName          String       @map("item_name") @db.VarChar(200)
+  quantityGrams     Decimal?     @map("quantity_grams") @db.Decimal(10, 2)
+  servings          Decimal?     @db.Decimal(8, 2)
+  calories          Decimal      @db.Decimal(10, 2)
+  proteinGrams      Decimal      @map("protein_grams") @db.Decimal(10, 2)
+  carbohydrateGrams Decimal      @map("carbohydrate_grams") @db.Decimal(10, 2)
+  fatGrams          Decimal      @map("fat_grams") @db.Decimal(10, 2)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  mealId String @map("meal_id") @db.Uuid
-
-  itemType MealItemType @map("item_type")
-  foodId   String?      @map("food_id") @db.Uuid
-  recipeId String?      @map("recipe_id") @db.Uuid
-
-  itemName String @map("item_name") @db.VarChar(200)
-
-  /// FOOD items use quantityGrams; RECIPE items use servings.
-  quantityGrams Decimal? @map("quantity_grams") @db.Decimal(10, 2)
-  servings      Decimal? @db.Decimal(8, 2)
-
-  calories          Decimal @db.Decimal(10, 2)
-  proteinGrams      Decimal @map("protein_grams") @db.Decimal(10, 2)
-  carbohydrateGrams Decimal @map("carbohydrate_grams") @db.Decimal(10, 2)
-  fatGrams          Decimal @map("fat_grams") @db.Decimal(10, 2)
-
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  meal   Meal    @relation(fields: [mealId], references: [id], onDelete: Cascade)
-  food   Food?   @relation(fields: [foodId], references: [id], onDelete: Restrict)
-  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: Restrict)
+  meal              Meal         @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  food              Food?        @relation(fields: [foodId], references: [id], onDelete: Restrict)
+  recipe            Recipe?      @relation(fields: [recipeId], references: [id], onDelete: Restrict)
 
   @@index([mealId])
   @@index([foodId])
   @@index([recipeId])
   @@map("meal_items")
+}
+
+// GROUP 8: WORKOUT TRACKING
+
+model WorkoutLog {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  userPlanId      String?           @map("user_plan_id") @db.Uuid
+  loggedAt        DateTime          @default(now()) @map("logged_at") @db.Timestamptz(6)
+  durationMinutes Int?              @map("duration_minutes")
+  caloriesBurned  Int?              @map("calories_burned")
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userPlan        UserPlan?         @relation(fields: [userPlanId], references: [id], onDelete: SetNull)
+  workoutExercises WorkoutExercise[]
+
+  @@index([userId])
+  /// BRIN index on loggedAt will be added via raw SQL
+  @@map("workout_logs")
+}
+
+model WorkoutExercise {
+  id            String       @id @default(uuid()) @db.Uuid
+  workoutLogId  String       @map("workout_log_id") @db.Uuid
+  exerciseId    String       @map("exercise_id") @db.Uuid
+  exerciseOrder Int          @map("exercise_order") @db.SmallInt
+
+  workoutLog    WorkoutLog   @relation(fields: [workoutLogId], references: [id], onDelete: Cascade)
+  exercise      Exercise     @relation(fields: [exerciseId], references: [id])
+  workoutSets   WorkoutSet[]
+
+  @@map("workout_exercises")
+}
+
+model WorkoutSet {
+  id                String          @id @default(uuid()) @db.Uuid
+  workoutExerciseId String          @map("workout_exercise_id") @db.Uuid
+  setOrder          Int             @map("set_order") @db.SmallInt
+  weightKg          Decimal?        @map("weight_kg") @db.Decimal(6, 2)
+  reps              Int?
+  isCompleted       Boolean         @default(false) @map("is_completed")
+
+  workoutExercise   WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+
+  @@map("workout_sets")
+}
+
+// GROUP 9: DAILY SUMMARY
+
+model DailySummary {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  summaryDate       DateTime @map("summary_date") @db.Date
+  targetCalories    Int      @map("target_calories")
+  consumedCalories  Decimal  @default(0) @map("consumed_calories") @db.Decimal(7, 2)
+  consumedProtein   Decimal  @default(0) @map("consumed_protein") @db.Decimal(5, 2)
+  consumedCarbs     Decimal  @default(0) @map("consumed_carbs") @db.Decimal(5, 2)
+  consumedFat       Decimal  @default(0) @map("consumed_fat") @db.Decimal(5, 2)
+  burnedCalories    Int      @default(0) @map("burned_calories")
+  remainingCalories Decimal  @default(0) @map("remaining_calories") @db.Decimal(7, 2)
+  mealCount         Int      @default(0) @map("meal_count")
+  workoutCount      Int      @default(0) @map("workout_count")
+  workoutCompleted  Boolean  @default(false) @map("workout_completed")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, summaryDate])
+  /// BRIN index on summaryDate will be added via raw SQL
+  @@map("daily_summaries")
+}
+
+// GROUP 10: AI COACH
+
+model AiConversation {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  title     String?     @db.VarChar(255)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @map("conversation_id") @db.Uuid
+  role           MessageRole
+  content        String         @db.Text
+  context        Json?          @db.JsonB
+  sentAt         DateTime       @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
+// GROUP 11: AUDIT LOG
+
+model AuditLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String?     @map("user_id") @db.Uuid
+  tableName   String      @map("table_name") @db.VarChar(100)
+  recordId    String      @map("record_id") @db.Uuid
+  action      AuditAction
+  oldValues   Json?       @map("old_values") @db.JsonB
+  newValues   Json?       @map("new_values") @db.JsonB
+  performedAt DateTime    @default(now()) @map("performed_at") @db.Timestamptz(6)
+
+  @@map("audit_logs")
 }
