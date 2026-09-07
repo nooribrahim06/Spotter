@@ -198,3 +198,80 @@ export class InvalidActionConfirmationError extends AppError {
     super(message, 403, "INVALID_PASSWORD_CONFIRMATION");
   }
 }
+
+// =========== Recipe Errors ===========
+export class RecipeNotFoundError extends AppError {
+  constructor(message = "Recipe not found.") {
+    super(message, 404, "RECIPE_NOT_FOUND");
+  }
+}
+
+export class InvalidRecipeIngredientsError extends AppError {
+  constructor(
+    message = "One or more selected foods are unavailable."
+  ) {
+    super(message, 409, "INVALID_RECIPE_INGREDIENTS", [
+      {
+        field: "ingredients",
+        message:
+          "Every ingredient must reference an active global food or one of your custom foods.",
+      },
+    ]);
+  }
+}
+
+// =========== Meal Errors ===========
+export class MealNotFoundError extends AppError {
+  constructor(message = "Meal not found.") {
+    super(message, 404, "MEAL_NOT_FOUND");
+  }
+}
+
+export class InvalidMealItemsError extends AppError {
+  constructor(message = "One or more selected meal items are unavailable.") {
+    super(message, 409, "INVALID_MEAL_ITEMS", [
+      {
+        field: "items",
+        message:
+          "Foods and recipes must be active, global, or owned by your account.",
+      },
+    ]);
+  }
+}
+
+export class MealTimezoneRequiredError extends AppError {
+  constructor(message = "Set your timezone before filtering meals by date.") {
+    super(message, 409, "MEAL_TIMEZONE_REQUIRED", [
+      { field: "timezone", message },
+    ]);
+  }
+}
+
+export class InvalidMealTimeError extends AppError {
+  constructor(message = "A meal cannot be logged in the future.") {
+    super(message, 409, "INVALID_MEAL_TIME", [
+      { field: "occurredAt", message },
+    ]);
+  }
+}
+
+// =========== Workout Errors ===========
+export class ActiveWorkoutExistsError extends AppError {
+  constructor(message = "Complete or cancel your active workout first.") {
+    super(message, 409, "ACTIVE_WORKOUT_EXISTS");
+  }
+}
+
+export class InvalidWorkoutStartTimeError extends AppError {
+  constructor(message = "A workout cannot start in the future.") {
+    super(message, 409, "INVALID_WORKOUT_START_TIME", [
+      { field: "startedAt", message },
+    ]);
+  }
+}
+
+export class WorkoutNotFoundError extends AppError {
+  constructor(message = "Workout not found.") {
+    super(message, 404, "WORKOUT_NOT_FOUND");
+  }
+}

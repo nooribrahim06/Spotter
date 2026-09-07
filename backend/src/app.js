@@ -2,9 +2,13 @@ import express from "express";
 
 
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { foodRoutes } from "./modules/foods/food.routes.js";
 import { goalRoutes } from "./modules/goals/goal.routes.js";
+import { mealRoutes } from "./modules/meals/meal.routes.js";
 import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
 import { profileRoutes } from "./modules/profiles/profile.routes.js";
+import { recipeRoutes } from "./modules/recipes/recipe.routes.js";
+import { workoutRoutes } from "./modules/workouts/workout.routes.js";
 
 
 import cookieParser from "cookie-parser";
@@ -40,6 +44,14 @@ app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/profiles", profileRoutes);
 
 app.use("/api/goals", goalRoutes);
+
+app.use("/api/foods", foodRoutes);
+
+app.use("/api/recipes", recipeRoutes);
+
+app.use("/api/meals", mealRoutes);
+
+app.use("/api/workouts", workoutRoutes);
 
 // must be global error handler, because it will catch all errors from all routes,
 //  and it must be after all routes, because it will catch errors from all routes.

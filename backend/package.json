@@ -13,7 +13,8 @@
     "test:profiles-db": "node --test integration/profiles.js",
     "worker:email": "node src/workers/email.worker.js",
     "seed:recipes": "prisma generate && node prisma/seed-recipes.js",
-    "seed:foods": "prisma generate && node prisma/seed-food.js"
+    "seed:foods": "prisma generate && node prisma/seed-food.js",
+    "seed:exercises": "prisma generate && node prisma/seed-exercises.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
@@ -23,6 +24,7 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "csv-parse": "^7.0.2",

@@ -54,3 +54,18 @@ export function validateParams(schema) {
     next();
   };
 }
+
+export function validateQuery(schema) {
+  return function (req, res, next) {
+    const result = schema.safeParse(req.query);
+
+    if (!result.success) {
+      throw new invalidSchemaError(
+        createPublicErrorDetails(result.error)
+      );
+    }
+
+    req.validatedQuery = result.data;
+    next();
+  };
+}
