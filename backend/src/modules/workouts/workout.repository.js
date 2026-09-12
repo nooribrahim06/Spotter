@@ -1,6 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import { databaseError } from "../../middlewares/errorHandling.js";
-
+// we will handle the errors diff here to avoid rewrite the original errors in nested try catch blocks
 const workoutInclude = {
   exercises: {
     orderBy: { exerciseOrder: "asc" },
@@ -130,11 +130,21 @@ async function changeActiveWorkout(
       ...additionalWhere,
     },
     data,
-    include: workoutInclude,
     limit: 1,
   });
 
-  return workouts[0] ?? null;
+  const workout = workouts[0] ?? null;
+  if (!workout) {
+    return null;
+  }
+
+  // If already hydrated with exercises "contains the executed exercises from the other table" return as is.
+  if (workout.exercises) {
+    return workout;
+  }
+// this is used to return the workout with the exercises included
+//  because the updateManyAndReturn does not include the exercises by default
+  return await findWorkoutByIdForUser(workoutId, userId, db);
 }
 
 export async function updateActiveWorkoutDetails(
@@ -144,8 +154,18 @@ export async function updateActiveWorkoutDetails(
   db = prisma
 ) {
   try {
+    // this have afunction that have a function that throws an error if the workout is not active or does not belong to the user
+
+    // so we do not have to rewrite the same error handling logic in the updateActiveWorkoutDetails function
+
+    // if error -> throw error
+    // if no error -> update the workout and return it
+    // if error happens here -> throw it
     return await changeActiveWorkout(workoutId, userId, data, db);
-  } catch {
+  } catch (error) {
+    if (error instanceof databaseError) {
+      throw error;
+    }
     throw new databaseError(
       "Database error occurred while updating the workout."
     );
@@ -166,7 +186,10 @@ export async function completeActiveWorkout(
       db,
       { exercises: { some: { completed: true } } }
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof databaseError) {
+      throw error;
+    }
     throw new databaseError(
       "Database error occurred while completing the workout."
     );
@@ -186,7 +209,10 @@ export async function cancelActiveWorkout(workoutId, userId, db = prisma) {
       },
       db
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof databaseError) {
+      throw error;
+    }
     throw new databaseError(
       "Database error occurred while cancelling the workout."
     );
