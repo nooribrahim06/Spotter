@@ -106,3 +106,89 @@ export async function findWorkoutByIdForUser(
     );
   }
 }
+
+// A unique workout ID means updateManyAndReturn changes at most one row. The
+// status condition makes the state transition atomic without a transaction.
+async function changeActiveWorkout(
+  workoutId,
+  userId,
+  data,
+  db,
+  additionalWhere = {}
+) {
+  // updatemany and return is used to ensure that the workout is still active and belongs to the user
+  // it is an atomic operation that will return the updated workout if it was successful, or null if it was not
+
+  // it may fail beacuse the workout was completed or cancelled by another request
+  //  or because the workout does not belong to the user
+  // AKA  race conditions 
+  const workouts = await db.workout.updateManyAndReturn({
+    where: {
+      id: workoutId,
+      userId,
+      status: "IN_PROGRESS",
+      ...additionalWhere,
+    },
+    data,
+    include: workoutInclude,
+    limit: 1,
+  });
+
+  return workouts[0] ?? null;
+}
+
+export async function updateActiveWorkoutDetails(
+  workoutId,
+  userId,
+  data,
+  db = prisma
+) {
+  try {
+    return await changeActiveWorkout(workoutId, userId, data, db);
+  } catch {
+    throw new databaseError(
+      "Database error occurred while updating the workout."
+    );
+  }
+}
+
+export async function completeActiveWorkout(
+  workoutId,
+  userId,
+  completion,
+  db = prisma
+) {
+  try {
+    return await changeActiveWorkout(
+      workoutId,
+      userId,
+      { status: "COMPLETED", ...completion },
+      db,
+      { exercises: { some: { completed: true } } }
+    );
+  } catch {
+    throw new databaseError(
+      "Database error occurred while completing the workout."
+    );
+  }
+}
+
+export async function cancelActiveWorkout(workoutId, userId, db = prisma) {
+  try {
+    return await changeActiveWorkout(
+      workoutId,
+      userId,
+      {
+        status: "CANCELLED",
+        completedAt: null,
+        durationMinutes: null,
+        estimatedCaloriesBurned: null,
+      },
+      db
+    );
+  } catch {
+    throw new databaseError(
+      "Database error occurred while cancelling the workout."
+    );
+  }
+}

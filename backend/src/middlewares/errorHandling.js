@@ -275,3 +275,55 @@ export class WorkoutNotFoundError extends AppError {
     super(message, 404, "WORKOUT_NOT_FOUND");
   }
 }
+
+export class InvalidWorkoutStateError extends AppError {
+  constructor(message = "Only an active workout can be changed.") {
+    super(message, 409, "INVALID_WORKOUT_STATE");
+  }
+}
+
+export class WorkoutCompletionRequiredError extends AppError {
+  constructor(
+    message = "Complete at least one exercise before completing the workout."
+  ) {
+    super(message, 409, "WORKOUT_COMPLETION_REQUIRED", [
+      { field: "exercises", message },
+    ]);
+  }
+}
+
+export class WorkoutExerciseNotFoundError extends AppError {
+  constructor(message = "Workout exercise not found.") {
+    super(message, 404, "WORKOUT_EXERCISE_NOT_FOUND");
+  }
+}
+
+export class DuplicateWorkoutExerciseError extends AppError {
+  constructor(message = "This exercise is already in the workout.") {
+    super(message, 409, "DUPLICATE_WORKOUT_EXERCISE");
+  }
+}
+
+export class WorkoutExerciseLimitError extends AppError {
+  constructor(message = "A workout cannot contain more than 50 exercises.") {
+    super(message, 409, "WORKOUT_EXERCISE_LIMIT_REACHED");
+  }
+}
+
+export class InvalidWorkoutExerciseError extends AppError {
+  constructor(details = null) {
+    super(
+      "The workout exercise measurements are invalid.",
+      409,
+      "INVALID_WORKOUT_EXERCISE",
+      details
+    );
+  }
+}
+
+// =========== Exercise Errors ===========
+export class ExerciseNotFoundError extends AppError {
+  constructor(message = "Exercise not found.") {
+    super(message, 404, "EXERCISE_NOT_FOUND");
+  }
+}

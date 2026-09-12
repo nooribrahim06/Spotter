@@ -1,23 +1,132 @@
-### Signup
-POST http://localhost:3000/api/auth/signup
-Content-Type: application/json
-
-{
-  "email": "nourhasan1990s@gmail.com",
-  "username": "nourirr",
-  "password": "TestPassword123!"
-} 
+@baseUrl = http://localhost:3000/api
+@accessToken = PASTE_YOUR_ACCESS_TOKEN_HERE
 
 
-### Login
-POST http://localhost:3000/api/auth/login
-Content-Type: application/json
+### =========================================================
+### FOOD SEARCH
+### =========================================================
 
-{
-  "email": "nourhasan1990s@gmail.com",
-  "password": "TestPassword123!"
-}
 
-### Refresh Token 
-# The REST client must retain and send the HttpOnly cookie set by /login.
-POST http://localhost:3000/api/auth/refresh
+### 1. Search without filters
+# Expected:
+# - page defaults to 1
+# - limit defaults to 20
+# - returns active global foods + my custom foodsks
+GET {{baseUrl}}/foods/search
+Authorization: Bearer {{accessToken}}
+
+
+### 2. Search by English name
+GET {{baseUrl}}/foods/search?search=chicken
+Authorization: Bearer {{accessToken}}
+
+
+### 3. Search should be case-insensitive
+GET {{baseUrl}}/foods/search?search=CHICKEN
+Authorization: Bearer {{accessToken}}
+
+
+### 4. Search with pagination
+GET {{baseUrl}}/foods/search?search=chicken&page=1&limit=10
+Authorization: Bearer {{accessToken}}
+
+
+### 5. Second page
+GET {{baseUrl}}/foods/search?search=chicken&page=2&limit=10
+Authorization: Bearer {{accessToken}}
+
+
+### 6. Filter by category only
+GET {{baseUrl}}/foods/search?category=POULTRY
+Authorization: Bearer {{accessToken}}
+
+
+### 7. Search + category
+GET {{baseUrl}}/foods/search?search=chicken&category=POULTRY
+Authorization: Bearer {{accessToken}}
+
+
+### 8. Search another common food
+GET {{baseUrl}}/foods/search?search=rice
+Authorization: Bearer {{accessToken}}
+
+
+### 9. Search something that probably does not exist
+# Expected:
+# items: []
+GET {{baseUrl}}/foods/search?search=zzzzzzzzzzzz
+Authorization: Bearer {{accessToken}}
+
+
+
+### =========================================================
+### QUERY VALIDATION TESTS
+### These should FAIL with your validation error response.
+### =========================================================
+
+
+### 10. Invalid page: cannot be 0
+GET {{baseUrl}}/foods/search?page=0
+Authorization: Bearer {{accessToken}}
+
+
+### 11. Invalid negative page
+GET {{baseUrl}}/foods/search?page=-1
+Authorization: Bearer {{accessToken}}
+
+
+### 12. Invalid limit: maximum is 50
+GET {{baseUrl}}/foods/search?limit=51
+Authorization: Bearer {{accessToken}}
+
+
+### 13. Invalid limit: minimum is 1
+GET {{baseUrl}}/foods/search?limit=0
+Authorization: Bearer {{accessToken}}
+
+
+### 14. Invalid page: must be integer
+GET {{baseUrl}}/foods/search?page=1.5
+Authorization: Bearer {{accessToken}}
+
+
+### 15. Invalid page: not a number
+GET {{baseUrl}}/foods/search?page=hello
+Authorization: Bearer {{accessToken}}
+
+
+### 16. Empty search
+# After trim(), search becomes ""
+# Your .min(1) should reject it.
+GET {{baseUrl}}/foods/search?search=
+Authorization: Bearer {{accessToken}}
+
+
+### 17. Search containing only spaces
+# URL encoded spaces
+# trim() -> "" -> should fail
+GET {{baseUrl}}/foods/search?search=%20%20%20
+Authorization: Bearer {{accessToken}}
+
+
+### 18. Search longer than 100 chars
+# Should fail .max(100)
+GET {{baseUrl}}/foods/search?search=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Authorization: Bearer {{accessToken}}
+
+
+### 19. Unknown query field
+# Because your Zod object is .strict(), this should fail.
+GET {{baseUrl}}/foods/search?randomThing=hello
+Authorization: Bearer {{accessToken}}
+
+
+
+### =========================================================
+### AUTH TEST
+### =========================================================
+
+
+### 20. Missing access token
+# Should be rejected by authenticateToken before controller.
+GET {{baseUrl}}/foods/search?search=chicken

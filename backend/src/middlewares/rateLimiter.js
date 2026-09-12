@@ -1,5 +1,18 @@
 import rateLimit from "express-rate-limit";
 
+// Every API endpoint gets this shared safety ceiling. Sensitive authentication
+// actions also keep their stricter, action-specific limiters below.
+export const apiRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  message: {
+    error: "Too many requests. Please try again later.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)

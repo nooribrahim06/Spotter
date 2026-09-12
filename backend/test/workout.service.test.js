@@ -5,11 +5,16 @@ process.env.NODE_ENV = "test";
 process.env.DATABASE_URL =
   "postgresql://spotter:spotter@localhost:5432/spotter_test";
 
+process.env.CLOUD_NAME = "test-cloud";
+
 const {
+  cancelWorkout,
+  completeWorkout,
   createWorkout,
   getActiveWorkout,
   getWorkoutById,
   getWorkoutHistory,
+  updateWorkout,
 } = await import(
   "../src/modules/workouts/workout.service.js"
 );
@@ -53,8 +58,8 @@ function workoutRecord(overrides = {}) {
           primaryMuscles: ["chest"],
           secondaryMuscles: ["triceps"],
           instructions: ["Keep your body straight."],
-          imageKey: "exercises/push-up/preview.jpg",
-          gifKey: "exercises/push-up/demo.gif",
+          trackingMetrics: ["SETS", "REPS"],
+          gifPublicId: "exercises/push-up/demo",
         },
       },
     ],
@@ -73,10 +78,12 @@ test("workout creation uses the authenticated user and database defaults", async
       },
       async create(args) {
         createQuery = args;
-        return {
-          id: "22222222-2222-4222-8222-222222222222",
-          ...args.data,
-        };
+        return workoutRecord({
+          name: args.data.name,
+          notes: args.data.notes,
+          startedAt: args.data.startedAt ?? timestamp,
+          exercises: [],
+        });
       },
     },
   };
@@ -88,7 +95,9 @@ test("workout creation uses the authenticated user and database defaults", async
     name: null,
     notes: null,
   });
-  assert.equal(result.userId, userId);
+  assert.equal("userId" in result, false);
+  assert.deepEqual(result.exercises, []);
+  assert.equal(result.status, "IN_PROGRESS");
 });
 
 test("workout creation passes optional request fields", async () => {
@@ -101,7 +110,7 @@ test("workout creation passes optional request fields", async () => {
       },
       async create(args) {
         createQuery = args;
-        return args.data;
+        return workoutRecord({ ...args.data, exercises: [] });
       },
     },
   };
@@ -276,5 +285,176 @@ test("an inaccessible workout is returned as not found", async () => {
     getWorkoutById(userId, workoutId, db),
     (error) =>
       error.code === "WORKOUT_NOT_FOUND" && error.statusCode === 404
+  );
+});
+
+test("an active workout can update only its user-authored details", async () => {
+  let updateQuery;
+  const db = {
+    workout: {
+      async findFirst() {
+        return workoutRecord();
+      },
+      async updateManyAndReturn(args) {
+        updateQuery = args;
+        return [workoutRecord(args.data)];
+      },
+    },
+  };
+
+  const result = await updateWorkout(
+    userId,
+    workoutId,
+    { name: null, notes: "Felt strong" },
+    db
+  );
+
+  assert.deepEqual(updateQuery.where, {
+    id: workoutId,
+    userId,
+    status: "IN_PROGRESS",
+  });
+  assert.deepEqual(updateQuery.data, { name: null, notes: "Felt strong" });
+  assert.equal(updateQuery.limit, 1);
+  assert.equal(result.name, null);
+  assert.equal(result.notes, "Felt strong");
+});
+
+test("completed workouts reject edit, complete, and cancel actions", async () => {
+  let updateCalled = false;
+  const db = {
+    workout: {
+      async findFirst() {
+        return workoutRecord({ status: "COMPLETED" });
+      },
+      async updateManyAndReturn() {
+        updateCalled = true;
+      },
+    },
+  };
+  const operations = [
+    () => updateWorkout(userId, workoutId, { notes: "Changed" }, db),
+    () => completeWorkout(userId, workoutId, db),
+    () => cancelWorkout(userId, workoutId, db),
+  ];
+
+  for (const operation of operations) {
+    await assert.rejects(
+      operation(),
+      (error) =>
+        error.code === "INVALID_WORKOUT_STATE" && error.statusCode === 409
+    );
+  }
+  assert.equal(updateCalled, false);
+});
+
+test("a workout needs a completed exercise before completion", async () => {
+  let updateCalled = false;
+  const db = {
+    workout: {
+      async findFirst() {
+        return workoutRecord();
+      },
+      async updateManyAndReturn() {
+        updateCalled = true;
+      },
+    },
+  };
+
+  await assert.rejects(
+    completeWorkout(userId, workoutId, db),
+    (error) =>
+      error.code === "WORKOUT_COMPLETION_REQUIRED" &&
+      error.statusCode === 409 &&
+      error.details[0].field === "exercises"
+  );
+  assert.equal(updateCalled, false);
+});
+
+test("completion atomically stores server time and derived duration", async () => {
+  const startedAt = new Date(Date.now() - 90 * 60_000);
+  const exercises = workoutRecord().exercises.map((exercise) => ({
+    ...exercise,
+    completed: true,
+  }));
+  let updateQuery;
+  const db = {
+    workout: {
+      async findFirst() {
+        return workoutRecord({ startedAt, exercises });
+      },
+      async updateManyAndReturn(args) {
+        updateQuery = args;
+        return [workoutRecord({ startedAt, exercises, ...args.data })];
+      },
+    },
+  };
+
+  const result = await completeWorkout(userId, workoutId, db);
+
+  assert.deepEqual(updateQuery.where, {
+    id: workoutId,
+    userId,
+    status: "IN_PROGRESS",
+    exercises: { some: { completed: true } },
+  });
+  assert.equal(updateQuery.data.status, "COMPLETED");
+  assert.ok(updateQuery.data.completedAt instanceof Date);
+  assert.equal(
+    updateQuery.data.durationMinutes,
+    Math.max(
+      1,
+      Math.ceil(
+        (updateQuery.data.completedAt.getTime() - startedAt.getTime()) / 60_000
+      )
+    )
+  );
+  assert.equal(result.status, "COMPLETED");
+  assert.equal(result.durationMinutes, updateQuery.data.durationMinutes);
+});
+
+test("cancelling preserves the workout and clears completion fields", async () => {
+  let updateQuery;
+  const db = {
+    workout: {
+      async findFirst() {
+        return workoutRecord();
+      },
+      async updateManyAndReturn(args) {
+        updateQuery = args;
+        return [workoutRecord(args.data)];
+      },
+    },
+  };
+
+  const result = await cancelWorkout(userId, workoutId, db);
+
+  assert.deepEqual(updateQuery.data, {
+    status: "CANCELLED",
+    completedAt: null,
+    durationMinutes: null,
+    estimatedCaloriesBurned: null,
+  });
+  assert.equal(result.status, "CANCELLED");
+  assert.equal(result.completedAt, null);
+  assert.equal(result.durationMinutes, null);
+});
+
+test("a lost concurrent state change returns a conflict", async () => {
+  const db = {
+    workout: {
+      async findFirst() {
+        return workoutRecord();
+      },
+      async updateManyAndReturn() {
+        return [];
+      },
+    },
+  };
+
+  await assert.rejects(
+    updateWorkout(userId, workoutId, { notes: "Changed" }, db),
+    (error) =>
+      error.code === "INVALID_WORKOUT_STATE" && error.statusCode === 409
   );
 });

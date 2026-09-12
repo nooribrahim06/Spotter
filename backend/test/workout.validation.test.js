@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import {
   createWorkoutSchema,
+  updateWorkoutSchema,
+  workoutActionSchema,
   workoutHistoryQuerySchema,
   workoutIdParamSchema,
 } from "../src/modules/workouts/workout.validate.js";
@@ -64,4 +66,32 @@ test("workout history rejects a reversed date range", () => {
   });
 
   assert.equal(result.success, false);
+});
+
+test("workout updates support trimming and intentional clearing", () => {
+  const result = updateWorkoutSchema.safeParse({
+    name: null,
+    notes: "  Better session  ",
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.data.name, null);
+  assert.equal(result.data.notes, "Better session");
+});
+
+test("workout updates reject empty and server-controlled changes", () => {
+  assert.equal(updateWorkoutSchema.safeParse({}).success, false);
+  assert.equal(
+    updateWorkoutSchema.safeParse({ status: "COMPLETED" }).success,
+    false
+  );
+});
+
+test("workout actions accept no body and reject client-controlled data", () => {
+  assert.equal(workoutActionSchema.safeParse(undefined).success, true);
+  assert.equal(workoutActionSchema.safeParse({}).success, true);
+  assert.equal(
+    workoutActionSchema.safeParse({ completedAt: new Date() }).success,
+    false
+  );
 });
