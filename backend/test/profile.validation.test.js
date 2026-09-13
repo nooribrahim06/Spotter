@@ -3,7 +3,6 @@ import { test } from "node:test";
 
 import {
   createBodyProfileSchema,
-  createProgressEntrySchema,
   healthProfileSchema,
   publicProfileUpdateSchema,
   trainingProfileSchema,
@@ -83,23 +82,6 @@ test("training days cannot exceed days marked available", () => {
   assert.ok(
     result.error.issues.some(
       (issue) => issue.path.join(".") === "trainingDaysPerWeek"
-    )
-  );
-});
-
-test("a progress check-in cannot repeat a measurement type", () => {
-  const result = createProgressEntrySchema.safeParse({
-    weightKg: 82,
-    measurements: [
-      { measurementType: "WAIST", valueCm: 85 },
-      { measurementType: "WAIST", valueCm: 84.5 },
-    ],
-  });
-
-  assert.equal(result.success, false);
-  assert.ok(
-    result.error.issues.some(
-      (issue) => issue.path.join(".") === "measurements"
     )
   );
 });

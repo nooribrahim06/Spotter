@@ -283,6 +283,7 @@ test("active goal includes the user's latest progress entry", async () => {
   assert.deepEqual(progressQuery.orderBy, [
     { recordedAt: "desc" },
     { createdAt: "desc" },
+    { id: "desc" },
   ]);
   assert.equal(result.status, "ACTIVE");
   assert.equal(result.currentProgress.weightKg, 81.25);

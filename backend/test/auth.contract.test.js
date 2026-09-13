@@ -319,7 +319,6 @@ test("all private profile routes require a valid access token", async () => {
     ["PUT", "/api/profiles/me/nutrition"],
     ["PUT", "/api/profiles/me/training"],
     ["PUT", "/api/profiles/me/coaching"],
-    ["POST", "/api/profiles/me/progress"],
     ["GET", "/api/profiles/me/targets"],
   ];
 
@@ -330,6 +329,35 @@ test("all private profile routes require a valid access token", async () => {
     assert.equal(response.status, 401);
     assert.equal(body.code, "INVALID_ACCESS_TOKEN");
   }
+});
+
+test("all progress routes require a valid access token", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const requests = [
+    ["POST", "/api/progress"],
+    ["GET", "/api/progress"],
+    ["GET", "/api/progress/latest"],
+    ["GET", "/api/progress/goal-progress"],
+    ["GET", `/api/progress/${id}`],
+  ];
+
+  for (const [method, path] of requests) {
+    const response = await fetch(baseUrl + path, { method });
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "INVALID_ACCESS_TOKEN");
+  }
+});
+
+test("the daily summary route requires a valid access token", async () => {
+  const response = await fetch(
+    `${baseUrl}/api/daily-summary?date=2026-09-11`
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(body.code, "INVALID_ACCESS_TOKEN");
 });
 
 test("all current goal routes require a valid access token", async () => {
