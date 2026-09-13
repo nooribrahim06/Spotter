@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import {
   PROFESSIONAL_CLEARANCE_CONDITION_CODES,
   PROFESSIONAL_CLEARANCE_STATE_CODES,
-  TARGET_CALCULATION_CONFIG,
   profileConfig,
 } from "../../config/profile.js";
 import { prisma } from "../../lib/prisma.js";
@@ -16,14 +15,12 @@ import {
   ProfileIncompleteError,
 } from "../../middlewares/errorHandling.js";
 import { findUserPasswordHashById } from "../users/user.repository.js";
-import { serializeProgressEntry } from "../progress/progress.serializer.js";
 import * as profileRepository from "./profile.repository.js";
+import { calculateFitnessTargets } from "./profile.targets.js";
 import {
   serializeBodyProfile,
   serializeBodyProfileUpdate,
   serializeCompleteProfile,
-  serializeDateOnly,
-  serializeDecimal,
   serializeOwnedProfileSection,
   serializePublicProfile,
 } from "./profile.serializer.js";
@@ -196,27 +193,9 @@ export async function replaceMyCoachingPreferences(userId, data) {
   return serializeOwnedProfileSection(saved);
 }
 
-export async function addMyProgressEntry(userId, data) {
-  await requireBodyProfile(userId);
-  const saved = await profileRepository.createProgressEntry(userId, data);
-  return serializeProgressEntry(saved);
-}
-
-// Age is calculated from birthDate every time because storing age would become
-// incorrect on the user's next birthday.
-function ageOnDate(birthDate, today = new Date()) {
-  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
-  const birthdayHasPassed =
-    today.getUTCMonth() > birthDate.getUTCMonth() ||
-    (today.getUTCMonth() === birthDate.getUTCMonth() &&
-      today.getUTCDate() >= birthDate.getUTCDate());
-  if (!birthdayHasPassed) age -= 1;
-  return age;
-}
-
-export async function getMyTargets(userId) {
+export async function getMyTargets(userId, db) {
   const { bodyProfile, activeGoal } =
-    await profileRepository.findTargetInputs(userId);
+    await profileRepository.findTargetInputs(userId, db);
 
   if (!bodyProfile) throw new BodyProfileNotFoundError();
   if (!activeGoal) throw new ActiveGoalRequiredError();
@@ -235,67 +214,11 @@ export async function getMyTargets(userId) {
     );
   }
 
-  const weightKg = serializeDecimal(latestProgress.weightKg);
-  const heightCm = serializeDecimal(bodyProfile.heightCm);
-  const age = ageOnDate(bodyProfile.birthDate);
-  const sexAdjustment =
-    bodyProfile.sexForCalculation === "MALE" ? 5 : -161;
-
-  // Mifflin-St Jeor provides the deterministic MVP baseline. The formula lives
-  // here because this is business calculation, while its adjustable policy
-  // values live in config/profile.js.
-
-  // this whole logic will be replaced by the AI models 
-  // that is all just a placeholder for now, the AI model will calculate the targets based on the user profile and the goal type and
-  //  the AI model will be able to adjust the targets based on the user progress and the user feedback.
-  const bmr =
-    10 * weightKg + 6.25 * heightCm - 5 * age + sexAdjustment;
-  const estimatedMaintenance =
-    bmr *
-    TARGET_CALCULATION_CONFIG.activityFactors[bodyProfile.activityLevel];
-  const minimumCalories =
-    TARGET_CALCULATION_CONFIG.minimumCalories[
-      bodyProfile.sexForCalculation
-    ];
-  const dailyCalories = Math.round(
-    Math.max(
-      minimumCalories,
-      estimatedMaintenance +
-        TARGET_CALCULATION_CONFIG.calorieAdjustments[activeGoal.goalType]
-    )
-  );
-
-  const proteinMultiplier = [
-    "LOSE_WEIGHT",
-    "GAIN_WEIGHT",
-    "BUILD_MUSCLE",
-  ].includes(activeGoal.goalType)
-    ? 1.8
-    : 1.6;
-  const proteinGrams = Math.round(weightKg * proteinMultiplier);
-  const fatGrams = Math.round((dailyCalories * 0.25) / 9);
-  const carbohydrateGrams = Math.max(
-    0,
-    Math.round((dailyCalories - proteinGrams * 4 - fatGrams * 9) / 4)
-  );
-
-  return {
-    dailyCalories,
-    proteinGrams,
-    carbohydrateGrams,
-    fatGrams,
-    calculatorVersion: TARGET_CALCULATION_CONFIG.version,
-    basedOn: {
-      goalId: activeGoal.id,
-      goalType: activeGoal.goalType,
-      targetWeightKg: serializeDecimal(activeGoal.targetWeightKg),
-      targetDate: serializeDateOnly(activeGoal.targetDate),
-      weightKg,
-      weightRecordedAt: latestProgress.recordedAt,
-    },
-    disclaimer:
-      "These targets are estimates for fitness planning and are not medical advice.",
-  };
+  return calculateFitnessTargets({
+    bodyProfile,
+    goal: activeGoal,
+    progressEntry: latestProgress,
+  });
 }
 
 export async function deleteMyBodyProfile(userId, password) {

@@ -81,14 +81,6 @@ export async function replaceMyCoachingPreferencesController(req, res) {
   return privateResponse(res, 200, result);
 }
 
-export async function addMyProgressEntryController(req, res) {
-  const result = await profileService.addMyProgressEntry(
-    req.user.id,
-    req.validatedBody
-  );
-  return privateResponse(res, 201, result);
-}
-
 export async function getMyTargetsController(req, res) {
   const result = await profileService.getMyTargets(req.user.id);
   return privateResponse(res, 200, result);

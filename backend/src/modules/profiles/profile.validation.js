@@ -339,57 +339,6 @@ export const coachingPreferencesSchema = z
   })
   .strict();
 
-/*
- * Progress is append-only through this module. The required weight creates the
- * new current body state, while optional device/body-composition readings add
- * context. A measurement type may appear once per check-in because the database
- * has the same uniqueness rule.
- */
-const progressMeasurementSchema = z
-  .object({
-    measurementType: z.enum(PROFILE_OPTIONS.bodyMeasurementTypes),
-    valueCm: z
-      .number()
-      .min(PROFILE_CONSTRAINTS.measurementCm.min)
-      .max(PROFILE_CONSTRAINTS.measurementCm.max),
-  })
-  .strict();
-
-export const createProgressEntrySchema = z
-  .object({
-    weightKg: z
-      .number()
-      .min(PROFILE_CONSTRAINTS.weightKg.min)
-      .max(PROFILE_CONSTRAINTS.weightKg.max),
-    bodyFatPercentage: z
-      .number()
-      .min(PROFILE_CONSTRAINTS.bodyFatPercentage.min)
-      .max(PROFILE_CONSTRAINTS.bodyFatPercentage.max)
-      .nullable()
-      .optional(),
-    skeletalMuscleMassKg: z.number().min(5).max(200).nullable().optional(),
-    restingHeartRateBpm: z
-      .number()
-      .int()
-      .min(PROFILE_CONSTRAINTS.restingHeartRateBpm.min)
-      .max(PROFILE_CONSTRAINTS.restingHeartRateBpm.max)
-      .nullable()
-      .optional(),
-    measurements: z.array(progressMeasurementSchema).max(14).default([]),
-    notes: optionalDisplayText(1000).optional(),
-  })
-  .strict()
-  .superRefine((data, context) => {
-    const types = data.measurements.map((item) => item.measurementType);
-    if (new Set(types).size !== types.length) {
-      context.addIssue({
-        code: "custom",
-        path: ["measurements"],
-        message: "Each measurement type may appear only once.",
-      });
-    }
-  });
-
 export const deleteBodyProfileSchema = z
   .object({
     password: z.string().min(1).max(128),

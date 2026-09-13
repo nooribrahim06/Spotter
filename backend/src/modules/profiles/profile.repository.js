@@ -333,28 +333,6 @@ export async function upsertCoachingPreferences(userId, data, db = prisma) {
   }
 }
 
-export async function createProgressEntry(userId, data, db = prisma) {
-  const { measurements, ...entry } = data;
-  try {
-    return await db.progressEntry.create({
-      data: {
-        bodyProfileId: userId,
-        ...entry,
-        measurements:
-          measurements.length > 0
-            ? { create: measurements }
-            : undefined,
-      },
-      select: progressEntrySelect,
-    });
-  } catch (error) {
-    if (error.code === "P2003") throw new BodyProfileNotFoundError();
-    throw new databaseError(
-      "Database error occurred while creating the progress entry."
-    );
-  }
-}
-
 export async function findTargetInputs(userId, db = prisma) {
   try {
     const [bodyProfile, activeGoal] = await Promise.all([
@@ -390,6 +368,66 @@ export async function findTargetInputs(userId, db = prisma) {
   } catch {
     throw new databaseError(
       "Database error occurred while reading calculation inputs."
+    );
+  }
+}
+
+// Historical summaries use the goal active during the requested local day and
+// the newest weight recorded by the end of that day.
+export async function findTargetInputsForDate(
+  userId,
+  dateRange,
+  db = prisma
+) {
+  try {
+    const [bodyProfile, activeGoal] = await Promise.all([
+      db.bodyProfile.findUnique({
+        where: { userId },
+        select: {
+          birthDate: true,
+          sexForCalculation: true,
+          heightCm: true,
+          activityLevel: true,
+          progressEntries: {
+            where: { recordedAt: { lt: dateRange.end } },
+            select: {
+              weightKg: true,
+              recordedAt: true,
+            },
+            orderBy: [
+              { recordedAt: "desc" },
+              { createdAt: "desc" },
+              { id: "desc" },
+            ],
+            take: 1,
+          },
+        },
+      }),
+      db.goal.findFirst({
+        where: {
+          userId,
+          startedAt: { lt: dateRange.end },
+          OR: [
+            { completedAt: null, cancelledAt: null },
+            { completedAt: { gte: dateRange.start } },
+            { cancelledAt: { gte: dateRange.start } },
+          ],
+        },
+        select: {
+          id: true,
+          goalType: true,
+          targetWeightKg: true,
+          targetDate: true,
+          startedAt: true,
+        },
+        orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+      }),
+    ]);
+
+    return { bodyProfile, activeGoal };
+  } catch {
+    throw new databaseError(
+      "Database error occurred while reading historical target inputs."
     );
   }
 }

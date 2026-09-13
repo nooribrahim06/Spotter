@@ -7,7 +7,6 @@ import {
   accountPreferencesUpdateSchema,
   coachingPreferencesSchema,
   createBodyProfileSchema,
-  createProgressEntrySchema,
   deleteBodyProfileSchema,
   healthProfileSchema,
   nutritionProfileSchema,
@@ -125,9 +124,4 @@ profileRoutes.put(
   controllers.replaceMyCoachingPreferencesController
 );
 
-profileRoutes.post(
-  "/me/progress",
-  validateBody(createProgressEntrySchema),
-  controllers.addMyProgressEntryController
-);
 profileRoutes.get("/me/targets", controllers.getMyTargetsController);
