@@ -327,3 +327,20 @@ export class ExerciseNotFoundError extends AppError {
     super(message, 404, "EXERCISE_NOT_FOUND");
   }
 }
+
+// =========== Progress Errors ===========
+export class ProgressEntryNotFoundError extends AppError {
+  constructor(message = "Progress entry not found.") {
+    super(message, 404, "PROGRESS_ENTRY_NOT_FOUND");
+  }
+}
+
+export class InvalidProgressDateError extends AppError {
+  constructor(
+    message = "New progress entry cannot be older than the latest entry."
+  ) {
+    super(message, 400, "INVALID_PROGRESS_DATE", [
+      { field: "recordedAt", message },
+    ]);
+  }
+}

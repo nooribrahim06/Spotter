@@ -9,8 +9,10 @@ import { mealRoutes } from "./modules/meals/meal.routes.js";
 import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
 import { profileRoutes } from "./modules/profiles/profile.routes.js";
 import { recipeRoutes } from "./modules/recipes/recipe.routes.js";
+import { progressRoutes } from "./modules/progress/progress.routes.js";
 import { workoutExerciseRoutes } from "./modules/workout-exercises/workoutExercise.routes.js";
 import { workoutRoutes } from "./modules/workouts/workout.routes.js";
+
 
 
 import cookieParser from "cookie-parser";
@@ -53,6 +55,8 @@ app.use("/api/foods", foodRoutes);
 
 app.use("/api/recipes", recipeRoutes);
 
+
+app.use("/api/progress", progressRoutes);
 
 app.use("/api/meals", mealRoutes);
 // Nested routes for workout exercises under workouts

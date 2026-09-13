@@ -13,9 +13,10 @@ export function serializeProgressEntry(entry) {
     weightKg: serializeDecimal(entry.weightKg),
     bodyFatPercentage: serializeDecimal(entry.bodyFatPercentage),
     skeletalMuscleMassKg: serializeDecimal(entry.skeletalMuscleMassKg),
-    measurements: entry.measurements.map((measurement) => ({
+    measurements: (entry.measurements || []).map((measurement) => ({
       measurementType: measurement.measurementType,
       valueCm: serializeDecimal(measurement.valueCm),
     })),
   };
 }
+
