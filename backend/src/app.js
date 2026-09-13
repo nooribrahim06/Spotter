@@ -2,18 +2,21 @@ import express from "express";
 
 
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { exerciseRoutes } from "./modules/exercises/exercise.routes.js";
 import { foodRoutes } from "./modules/foods/food.routes.js";
 import { goalRoutes } from "./modules/goals/goal.routes.js";
 import { mealRoutes } from "./modules/meals/meal.routes.js";
 import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
 import { profileRoutes } from "./modules/profiles/profile.routes.js";
 import { recipeRoutes } from "./modules/recipes/recipe.routes.js";
+import { workoutExerciseRoutes } from "./modules/workout-exercises/workoutExercise.routes.js";
 import { workoutRoutes } from "./modules/workouts/workout.routes.js";
 
 
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { env } from "./config/env.js";
+import { apiRateLimiter } from "./middlewares/rateLimiter.js";
 
 export const app = express();
 
@@ -32,12 +35,13 @@ app.use(cors({
 
 app.use(cookieParser());
 
+// Apply one broad IP-based ceiling to every API endpoint. Authentication
+// routes add stricter limits for credential and verification actions.
+app.use("/api", apiRateLimiter);
 
-
-// MiddleWares 
-// 1. rate limiter 
-// All requests beginning with /api/auth go to authRoutes
 app.use("/api/auth", authRoutes);
+
+app.use("/api/exercises", exerciseRoutes);
 
 app.use("/api/onboarding", onboardingRoutes);
 
@@ -49,7 +53,13 @@ app.use("/api/foods", foodRoutes);
 
 app.use("/api/recipes", recipeRoutes);
 
+
 app.use("/api/meals", mealRoutes);
+// Nested routes for workout exercises under workouts
+// we must but it before the workout routes, 
+// because the workout routes will catch all requests to /api/workouts/:workoutId/exercises 
+// and will not reach the workoutExerciseRoutes.
+app.use("/api/workouts/:workoutId/exercises", workoutExerciseRoutes);
 
 app.use("/api/workouts", workoutRoutes);
 

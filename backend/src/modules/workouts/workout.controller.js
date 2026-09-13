@@ -1,8 +1,11 @@
 import {
+  cancelWorkout,
+  completeWorkout,
   createWorkout,
   getActiveWorkout,
   getWorkoutById,
   getWorkoutHistory,
+  updateWorkout,
 } from "./workout.service.js";
 
 function privateResponse(res, statusCode, data) {
@@ -31,6 +34,31 @@ export async function getWorkoutHistoryController(req, res) {
 
 export async function getWorkoutByIdController(req, res) {
   const workout = await getWorkoutById(
+    req.user.id,
+    req.validatedParams.workoutId
+  );
+  return privateResponse(res, 200, workout);
+}
+
+export async function updateWorkoutController(req, res) {
+  const workout = await updateWorkout(
+    req.user.id,
+    req.validatedParams.workoutId,
+    req.validatedBody
+  );
+  return privateResponse(res, 200, workout);
+}
+
+export async function completeWorkoutController(req, res) {
+  const workout = await completeWorkout(
+    req.user.id,
+    req.validatedParams.workoutId
+  );
+  return privateResponse(res, 200, workout);
+}
+
+export async function cancelWorkoutController(req, res) {
+  const workout = await cancelWorkout(
     req.user.id,
     req.validatedParams.workoutId
   );

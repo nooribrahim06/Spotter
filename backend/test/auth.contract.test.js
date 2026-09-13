@@ -430,6 +430,9 @@ test("all current workout routes require a valid access token", async () => {
     ["GET", "/api/workouts/active"],
     ["GET", "/api/workouts/history"],
     ["GET", `/api/workouts/${id}`],
+    ["PATCH", `/api/workouts/${id}`],
+    ["POST", `/api/workouts/${id}/complete`],
+    ["POST", `/api/workouts/${id}/cancel`],
   ];
 
   for (const [method, path] of requests) {
