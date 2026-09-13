@@ -2,6 +2,7 @@ import express from "express";
 
 
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { dailySummaryRoutes } from "./modules/daily-summary/dailySummary.routes.js";
 import { exerciseRoutes } from "./modules/exercises/exercise.routes.js";
 import { foodRoutes } from "./modules/foods/food.routes.js";
 import { goalRoutes } from "./modules/goals/goal.routes.js";
@@ -42,6 +43,8 @@ app.use(cookieParser());
 app.use("/api", apiRateLimiter);
 
 app.use("/api/auth", authRoutes);
+
+app.use("/api/daily-summary", dailySummaryRoutes);
 
 app.use("/api/exercises", exerciseRoutes);
 

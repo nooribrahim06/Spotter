@@ -344,3 +344,23 @@ export class InvalidProgressDateError extends AppError {
     ]);
   }
 }
+
+export class ProgressTimezoneRequiredError extends AppError {
+  constructor(
+    message = "Set your timezone before filtering progress by date."
+  ) {
+    super(message, 409, "PROGRESS_TIMEZONE_REQUIRED", [
+      { field: "timezone", message },
+    ]);
+  }
+}
+
+export class DailySummaryTimezoneRequiredError extends AppError {
+  constructor(
+    message = "Set your timezone before viewing a daily summary."
+  ) {
+    super(message, 409, "DAILY_SUMMARY_TIMEZONE_REQUIRED", [
+      { field: "timezone", message },
+    ]);
+  }
+}
