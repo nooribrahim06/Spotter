@@ -1,9 +1,11 @@
 import { prisma } from "../../lib/prisma.js";
-import { databaseError } from "../../middlewares/errorHandling.js";
+import {
+  BodyProfileNotFoundError,
+  databaseError,
+} from "../../middlewares/errorHandling.js";
 
 const progressEntrySelect = {
   id: true,
-  bodyProfileId: true,
   goalId: true,
   recordedAt: true,
   weightKg: true,
@@ -20,6 +22,7 @@ const progressEntrySelect = {
       valueCm: true,
       createdAt: true,
     },
+    orderBy: { measurementType: "asc" },
   },
 };
 
@@ -39,7 +42,8 @@ export async function createInitialProgressEntry(
       },
       select: progressEntrySelect,
     });
-  } catch {
+  } catch (error) {
+    if (error.code === "P2003") throw new BodyProfileNotFoundError();
     throw new databaseError(
       "Database error occurred while creating the initial progress entry."
     );
@@ -69,7 +73,8 @@ export async function createProgressEntry(
       },
       select: progressEntrySelect,
     });
-  } catch {
+  } catch (error) {
+    if (error.code === "P2003") throw new BodyProfileNotFoundError();
     throw new databaseError(
       "Database error occurred while creating the progress entry."
     );
@@ -85,7 +90,11 @@ export async function findLatestProgressEntryByUserId(
     return await db.progressEntry.findFirst({
       where: { bodyProfileId: userId },
       select: progressEntrySelect,
-      orderBy: [{ recordedAt: "desc" }, { createdAt: "desc" }],
+      orderBy: [
+        { recordedAt: "desc" },
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
     });
   } catch {
     throw new databaseError(
@@ -100,32 +109,23 @@ export async function findProgressHistoryByUserId(
   query,
   db = prisma
 ) {
-  const { page = 1, limit = 20, startDate, endDate } = query;
+  const { page = 1, limit = 20, dateRange } = query;
   const skip = (page - 1) * limit;
 
   const where = {
     bodyProfileId: userId,
+    ...(dateRange ? { recordedAt: dateRange } : {}),
   };
-
-  if (startDate || endDate) {
-    where.recordedAt = {};
-
-    if (startDate) {
-      where.recordedAt.gte = new Date(`${startDate}T00:00:00.000Z`);
-    }
-
-    if (endDate) {
-      const nextDay = new Date(`${endDate}T00:00:00.000Z`);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      where.recordedAt.lt = nextDay;
-    }
-  }
 
   try {
     const [progressEntries, totalItems] = await Promise.all([
       db.progressEntry.findMany({
         where,
-        orderBy: [{ recordedAt: "desc" }, { createdAt: "desc" }],
+        orderBy: [
+          { recordedAt: "desc" },
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
         skip,
         take: limit,
         select: progressEntrySelect,
@@ -160,6 +160,59 @@ export async function findProgressEntryById(
   } catch {
     throw new databaseError(
       "Database error occurred while finding the progress entry."
+    );
+  }
+}
+
+// The onboarding baseline is preferred. A regular goal falls back to the
+// latest check-in that existed when that goal was activated.
+export async function findGoalProgressEntries(
+  userId,
+  goal,
+  db = prisma
+) {
+  try {
+    const [currentEntry, initialEntry] = await Promise.all([
+      db.progressEntry.findFirst({
+        where: { bodyProfileId: userId },
+        select: progressEntrySelect,
+        orderBy: [
+          { recordedAt: "desc" },
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
+      }),
+      db.progressEntry.findFirst({
+        where: {
+          bodyProfileId: userId,
+          goalId: goal.id,
+          isInitialForGoal: true,
+        },
+        select: progressEntrySelect,
+      }),
+    ]);
+
+    let startingEntry = initialEntry;
+
+    if (!startingEntry && goal.startedAt) {
+      startingEntry = await db.progressEntry.findFirst({
+        where: {
+          bodyProfileId: userId,
+          recordedAt: { lte: goal.startedAt },
+        },
+        select: progressEntrySelect,
+        orderBy: [
+          { recordedAt: "desc" },
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
+      });
+    }
+
+    return { startingEntry, currentEntry };
+  } catch {
+    throw new databaseError(
+      "Database error occurred while calculating goal progress."
     );
   }
 }

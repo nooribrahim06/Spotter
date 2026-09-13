@@ -9,14 +9,19 @@ export function serializeProgressEntry(entry) {
   if (!entry) return null;
 
   return {
-    ...entry,
+    id: entry.id,
+    goalId: entry.goalId,
+    recordedAt: entry.recordedAt,
     weightKg: serializeDecimal(entry.weightKg),
     bodyFatPercentage: serializeDecimal(entry.bodyFatPercentage),
     skeletalMuscleMassKg: serializeDecimal(entry.skeletalMuscleMassKg),
+    restingHeartRateBpm: entry.restingHeartRateBpm,
+    notes: entry.notes,
+    isInitialForGoal: entry.isInitialForGoal,
+    createdAt: entry.createdAt,
     measurements: (entry.measurements || []).map((measurement) => ({
       measurementType: measurement.measurementType,
       valueCm: serializeDecimal(measurement.valueCm),
     })),
   };
 }
-

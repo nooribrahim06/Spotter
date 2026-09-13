@@ -1,12 +1,23 @@
 import {
+  ActiveGoalRequiredError,
+  BodyProfileNotFoundError,
   InvalidProgressDateError,
+  ProfileIncompleteError,
   ProgressEntryNotFoundError,
 } from "../../middlewares/errorHandling.js";
 import { findActiveGoalByUserId } from "../goals/goal.repository.js";
+import { findBodyProfileByUserId } from "../profiles/profile.repository.js";
 import * as progressRepo from "./progress.repository.js";
 import * as progressSerializer from "./progress.serializer.js";
+import {
+  buildGoalProgress,
+  buildProgressDateRange,
+} from "./progress.rules.js";
 
 export async function createProgressEntry(progressData, userId, db) {
+  const bodyProfile = await findBodyProfileByUserId(userId, db);
+  if (!bodyProfile) throw new BodyProfileNotFoundError();
+
   const recordedAt = progressData.recordedAt ?? new Date();
 
   const latestEntry = await progressRepo.findLatestProgressEntryByUserId(
@@ -21,20 +32,15 @@ export async function createProgressEntry(progressData, userId, db) {
     throw new InvalidProgressDateError();
   }
 
-  // Link to active goal if one exists and goalId isn't explicitly provided
-  let goalId = progressData.goalId;
-  if (!goalId) {
-    const activeGoal = await findActiveGoalByUserId(userId, db);
-    if (activeGoal) {
-      goalId = activeGoal.id;
-    }
-  }
+  // Goal ownership never comes from the request. Link only to the
+  // authenticated user's active goal when one exists.
+  const activeGoal = await findActiveGoalByUserId(userId, db);
 
   const newEntry = await progressRepo.createProgressEntry(
     {
       ...progressData,
       recordedAt,
-      ...(goalId ? { goalId } : {}),
+      ...(activeGoal ? { goalId: activeGoal.id } : {}),
     },
     userId,
     db
@@ -43,11 +49,16 @@ export async function createProgressEntry(progressData, userId, db) {
   return progressSerializer.serializeProgressEntry(newEntry);
 }
 
-export async function getProgressHistory(userId, query, db) {
+export async function getProgressHistory(userId, query, timezone, db) {
+  const dateRange = buildProgressDateRange(query, timezone);
   const { progressEntries, totalItems } =
-    await progressRepo.findProgressHistoryByUserId(userId, query, db);
+    await progressRepo.findProgressHistoryByUserId(
+      userId,
+      { page: query.page, limit: query.limit, dateRange },
+      db
+    );
 
-  const totalPages = Math.ceil(totalItems / query.limit) || 1;
+  const totalPages = Math.ceil(totalItems / query.limit);
 
   return {
     items: progressEntries.map(progressSerializer.serializeProgressEntry),
@@ -83,4 +94,22 @@ export async function getProgressEntryById(userId, entryId, db) {
   }
 
   return progressSerializer.serializeProgressEntry(entry);
+}
+export async function getGoalProgress(userId, db) {
+  const activeGoal = await findActiveGoalByUserId(userId, db);
+  if (!activeGoal) throw new ActiveGoalRequiredError();
+
+  const { startingEntry, currentEntry } =
+    await progressRepo.findGoalProgressEntries(userId, activeGoal, db);
+
+  if (!startingEntry || !currentEntry) {
+    throw new ProfileIncompleteError([
+      {
+        field: "currentWeightKg",
+        message: "Record your weight before viewing goal progress.",
+      },
+    ]);
+  }
+
+  return buildGoalProgress(activeGoal, startingEntry, currentEntry);
 }
