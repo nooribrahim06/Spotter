@@ -102,3 +102,105 @@ graph TD
    - During `PUT /api/meals/:mealId`, replacing meal items and updating header fields occurs inside a single database transaction. If snapshot insertion fails, previous items are not lost.
 4. **Accessing Another User's Meal:**
    - `findOwnedMealById` filters strictly on `userId`. Attempting to read, replace, or delete someone else's meal returns `MealNotFoundError` (HTTP 404), preventing resource existence enumeration.
+
+---
+
+## 7. Request Sequences & Execution Flows
+
+### A. `POST /api/meals` (Log a Meal with Snapshots)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as MealController
+    participant Service as MealService
+    participant Repo as MealRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: POST /api/meals (Bearer Token, body: { mealType, occurredAt, items })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateBody(createMealSchema)
+    Validator->>Router: req.validatedBody
+    Router->>Controller: createMealController
+    Controller->>Service: createMeal(userId, input)
+    Service->>Service: assertMealTimeIsNotFuture(occurredAt)
+    Service->>Repo: findAccessibleFoods & findAccessibleRecipes (Parallel)
+    Repo->>DB: SELECT accessible foods & recipes
+    DB-->>Repo: Accessible catalog rows
+    Service->>Service: buildMealItemSnapshots(items, foods, recipes)
+    Service->>Repo: createMeal(userId, mealData, itemSnapshots)
+    Repo->>DB: Transaction: INSERT meal & meal_items
+    DB-->>Repo: Created meal with items
+    Repo-->>Service: Meal entity
+    Service-->>Controller: Serialized meal with totals & macrosComplete
+    Controller-->>Frontend: 201 Created (meal data)
+```
+
+### B. `GET /api/meals` (List Meals by Date / History)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as MealController
+    participant Service as MealService
+    participant Repo as MealRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: GET /api/meals?date=2026-09-13 (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateQuery(listMealsQuerySchema)
+    Validator->>Router: req.validatedQuery
+    Router->>Controller: listMealsController
+    Controller->>Service: listMeals(userId, query, timezone)
+    Service->>Service: buildMealDateRange(date, timezone)
+    Service->>Repo: findMeals(userId, { dateRange, page, limit })
+    Repo->>DB: SELECT meals WHERE userId=userId AND occurredAt in range
+    DB-->>Repo: Meals & total count
+    Repo-->>Service: { meals, totalItems }
+    Service-->>Controller: { items: serializedMeals, pagination }
+    Controller-->>Frontend: 200 OK (meals list with daily macro totals)
+```
+
+### C. `PUT /api/meals/:mealId` (Replace Meal & Refresh Snapshots)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as MealController
+    participant Service as MealService
+    participant Repo as MealRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: PUT /api/meals/:mealId (Bearer Token, body: { mealType, items })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateParams & validateBody
+    Validator->>Router: req.validatedParams & req.validatedBody
+    Router->>Controller: replaceMealController
+    Controller->>Service: replaceMeal(userId, mealId, input)
+    Service->>Repo: findOwnedMealIdentity(mealId, userId)
+    Repo->>DB: SELECT id WHERE id=mealId AND userId=userId
+    DB-->>Repo: Exists
+    Service->>Repo: findAccessibleFoods & findAccessibleRecipes
+    Service->>Service: buildMealItemSnapshots(items, foods, recipes)
+    Service->>Repo: replaceOwnedMeal(mealId, userId, mealData, itemSnapshots)
+    Repo->>DB: Transaction: UPDATE meal, DELETE old items, INSERT new item snapshots
+    DB-->>Repo: Replaced meal entity
+    Repo-->>Service: Meal entity
+    Service-->>Controller: Serialized updated meal
+    Controller-->>Frontend: 200 OK (updated meal)
+```

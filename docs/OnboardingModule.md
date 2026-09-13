@@ -106,3 +106,66 @@ src/modules/on-boarding/
    - If two completion requests fire simultaneously, the `claimOnboardingCompletion` query matches `count === 1` for the first request. The second request gets `count === 0` and safely returns the completed state without duplicating progress entries or corrupting goal states.
 4. **Altering Completed Profiles via Onboarding:**
    - Once onboarding is `COMPLETED`, calling `PATCH /` throws `InvalidOnboardingStateError`. Future edits must go through the dedicated Profile and Goal APIs.
+
+---
+
+## 7. Request Sequences & Execution Flows
+
+### A. `PATCH /api/onboarding` (Save Step 1 / Step 2 Draft)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as OnboardingController
+    participant Service as OnboardingService
+    participant DB as PostgreSQL
+
+    Frontend->>Router: PATCH /api/onboarding (Bearer Token, body: { step: 1, data: { ... } })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateOnboardingStep
+    Validator->>Router: req.validatedBody
+    Router->>Controller: updateOnboardingController
+    Controller->>Service: saveOnboardingStep(userId, step, data)
+    
+    alt Step 1 (Personal & Physical Baseline)
+        Service->>DB: Transaction: upsert UserProfile + upsert BodyProfile + update User(onboardingStep: 2)
+        DB-->>Service: Updated records
+    else Step 2 (Activity & Goal)
+        Service->>DB: Transaction: update BodyProfile(activityLevel) + upsert Goal(DRAFT) + update User(onboardingStep: 3)
+        DB-->>Service: Updated records
+    end
+
+    Service-->>Controller: { status, currentStep, completedSteps, message }
+    Controller-->>Frontend: 200 OK (updated onboarding draft state)
+```
+
+### B. `POST /api/onboarding/complete` (Finalize & Activate)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Controller as OnboardingController
+    participant Service as OnboardingService
+    participant DB as PostgreSQL
+
+    Frontend->>Router: POST /api/onboarding/complete (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Controller: completeOnboardingController
+    Controller->>Service: completeOnboarding(userId)
+    Service->>DB: Verify step 1 & step 2 completeness
+    DB-->>Service: All required profile & goal data present
+    Service->>DB: Transaction: claim completion (WHERE status != COMPLETED), create initial ProgressEntry, activate Goal (status: ACTIVE), seal User (status: COMPLETED)
+    DB-->>Service: Transaction committed
+    Service-->>Controller: { status: "completed", currentStep: null, completedSteps: [1, 2, 3] }
+    Controller-->>Frontend: 200 OK (completed state)
+```
+

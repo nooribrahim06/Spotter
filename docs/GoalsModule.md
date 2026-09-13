@@ -128,3 +128,96 @@ src/modules/goals/
    - Calling `POST /:goalId/cancel` on an already cancelled or completed goal throws `InvalidGoalStateError` ("Only a draft or active goal can be cancelled.").
 4. **Missing Goals:**
    - Querying or mutating a non-existent goal (or a goal owned by another user) throws `GoalNotFoundError` (HTTP 404).
+
+---
+
+## 7. Request Sequences & Execution Flows
+
+### A. `POST /api/goals` (Create Draft Goal)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as GoalController
+    participant Service as GoalService
+    participant Repo as GoalRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: POST /api/goals (Bearer Token, body: { goalType, targetWeightKg, ... })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateBody(createGoalSchema)
+    Validator->>Router: req.validatedBody
+    Router->>Controller: createGoalController
+    Controller->>Service: createGoal(userId, data)
+    Service->>Repo: Insert new DRAFT goal
+    Repo->>DB: INSERT into goals (status='DRAFT')
+    DB-->>Repo: Draft goal row
+    Repo-->>Service: Goal entity
+    Service-->>Controller: Serialized draft goal
+    Controller-->>Frontend: 201 Created (draft goal data)
+```
+
+### B. `POST /api/goals/:goalId/activate` (Activate Goal)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as GoalController
+    participant Service as GoalService
+    participant Repo as GoalRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: POST /api/goals/:goalId/activate (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateParams(goalIdParamSchema)
+    Validator->>Router: req.validatedParams
+    Router->>Controller: activateGoalController
+    Controller->>Service: activateGoal(userId, goalId)
+    Service->>Repo: Find goal where id=goalId AND status='DRAFT'
+    Repo->>DB: SELECT
+    DB-->>Repo: Goal entity
+    Service->>Repo: Check no other ACTIVE goal exists
+    Service->>Repo: Update status to ACTIVE
+    Repo->>DB: UPDATE goals SET status='ACTIVE', startedAt=now
+    DB-->>Repo: Activated goal
+    Repo-->>Service: Goal entity
+    Service-->>Controller: Serialized active goal
+    Controller-->>Frontend: 200 OK (active goal data)
+```
+
+### C. `GET /api/goals/active` (Get Active Goal)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Controller as GoalController
+    participant Service as GoalService
+    participant Repo as GoalRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: GET /api/goals/active (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Controller: getActiveGoalController
+    Controller->>Service: getActiveGoal(userId)
+    Service->>Repo: Find goal where userId=userId AND status='ACTIVE'
+    Repo->>DB: SELECT
+    DB-->>Repo: Active goal entity (or null)
+    Repo-->>Service: Goal entity
+    Service-->>Controller: Serialized goal with progress delta
+    Controller-->>Frontend: 200 OK (active goal)
+```
+

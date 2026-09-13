@@ -109,3 +109,99 @@ In Spotter, **"the user's profile" is not a single database table or permission 
    - Calling `POST /me/body` when a profile already exists throws `BodyProfileAlreadyExistsError` (HTTP 409).
 3. **Invalid Password on Deletion:**
    - If the password supplied in `DELETE /me/body` does not match, the service throws `InvalidActionConfirmationError` (HTTP 401).
+
+---
+
+## 7. Request Sequences & Execution Flows
+
+### A. `GET /api/profiles/me` (Aggregated Profile View)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Controller as ProfileController
+    participant Service as ProfileService
+    participant Repo as ProfileRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: GET /api/profiles/me (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Controller: getMyProfileController
+    Controller->>Service: getMyProfile(userId)
+    Service->>Repo: findCompleteProfileByUserId(userId)
+    Repo->>DB: SELECT user, bodyProfile, health, training, nutrition, latest progress
+    DB-->>Repo: Complete aggregated record
+    Repo-->>Service: Profile entity
+    Service-->>Controller: Serialized aggregated profile
+    Controller-->>Frontend: 200 OK (complete profile data)
+```
+
+### B. `GET /api/profiles/me/targets` (Calculate Daily Macro Targets)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Controller as ProfileController
+    participant Service as ProfileService
+    participant GoalRepo as GoalRepository
+    participant ProgressRepo as ProgressRepository
+    participant Repo as ProfileRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: GET /api/profiles/me/targets (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Controller: getMyTargetsController
+    Controller->>Service: getMyTargets(userId)
+    Service->>Repo: findBodyProfileByUserId(userId)
+    Repo->>DB: SELECT bodyProfile
+    DB-->>Repo: Body stats (height, birthDate, sex)
+    Service->>GoalRepo: findActiveGoalByUserId(userId)
+    GoalRepo->>DB: SELECT active goal
+    DB-->>GoalRepo: Active goal entity
+    Service->>ProgressRepo: findLatestProgressEntryByUserId(userId)
+    ProgressRepo->>DB: SELECT newest weight
+    DB-->>ProgressRepo: Latest weight check-in
+    Service->>Service: Compute Mifflin-St Jeor BMR & Goal Calorie/Macro Targets
+    Service-->>Controller: { dailyCalories, proteinGrams, carbohydrateGrams, fatGrams, basedOn }
+    Controller-->>Frontend: 200 OK (calculated targets)
+```
+
+### C. `DELETE /api/profiles/me/body` (Reset Physical Identity)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as ProfileController
+    participant Service as ProfileService
+    participant UserRepo as UserRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: DELETE /api/profiles/me/body (Bearer Token, body: { password })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateBody(confirmActionSchema)
+    Validator->>Router: req.validatedBody
+    Router->>Controller: deleteMyBodyProfileController
+    Controller->>Service: deleteMyBodyProfile(userId, password)
+    Service->>UserRepo: findUserPasswordHashById(userId)
+    UserRepo->>DB: SELECT passwordHash
+    DB-->>UserRepo: Hash
+    Service->>Service: bcrypt.compare(password, passwordHash)
+    Service->>DB: Transaction: DELETE body_profile (cascades) + CANCEL active goals + reset onboarding status
+    DB-->>Service: Success
+    Service-->>Controller: Success
+    Controller-->>Frontend: 204 No Content
+```
+

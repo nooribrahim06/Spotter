@@ -98,5 +98,93 @@ graph TD
    - If `search` is omitted in `GET /api/foods/search`, the repository returns all visible catalog foods ordered by name, supporting category browsing.
 2. **Pagination Overflow:**
    - Requesting `page: 999` when only 5 pages exist gracefully returns an empty array `items: []` with `hasNextPage: false` rather than erroring.
+
+---
+
+## 7. Request Sequences & Execution Flows
+
+### A. `GET /api/foods` (Foods Overview)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Controller as FoodController
+    participant Service as FoodService
+    participant Repo as FoodRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: GET /api/foods (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Controller: getFoodOverviewController
+    Controller->>Service: getFoodOverview(userId)
+    Service->>Repo: findRecentFoodsForUser(userId) & findCustomFoodsForUser(userId)
+    Repo->>DB: Parallel Queries
+    DB-->>Repo: Recent & custom food records
+    Repo-->>Service: Food entities
+    Service-->>Controller: { recentFoods, customFoods }
+    Controller-->>Frontend: 200 OK ({ recentFoods, customFoods })
+```
+
+### B. `GET /api/foods/search` (Search & Filter Catalog)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Query Validator
+    participant Controller as FoodController
+    participant Service as FoodService
+    participant Repo as FoodRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: GET /api/foods/search?search=Egg&category=Dairy (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateQuery(getFoodsQuerySchema)
+    Validator->>Router: req.validatedQuery
+    Router->>Controller: searchFoodController
+    Controller->>Service: searchFood(userId, searchParams)
+    Service->>Repo: searchFoods(userId, searchParams)
+    Repo->>DB: SELECT foods WHERE isActive=true AND (global OR owned)
+    DB-->>Repo: Foods & total count
+    Repo-->>Service: { foods, totalItems }
+    Service-->>Controller: Paginated food items & metadata
+    Controller-->>Frontend: 200 OK (paginated results)
+```
+
+### C. `POST /api/foods/custom` (Create Custom Food)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Body Validator
+    participant Controller as FoodController
+    participant Service as FoodService
+    participant Repo as FoodRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: POST /api/foods/custom (Bearer Token, body: { nameEn, caloriesPer100g, ... })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateBody(createCustomFoodSchema)
+    Validator->>Router: req.validatedBody
+    Router->>Controller: createCustomFoodController
+    Controller->>Service: createCustomFood(userId, data)
+    Service->>Repo: createCustomFood(userId, data)
+    Repo->>DB: INSERT into foods (createdByUserId=userId, isActive=true)
+    DB-->>Repo: Inserted food row
+    Repo-->>Service: Food entity
+    Service-->>Controller: Serialized custom food
+    Controller-->>Frontend: 201 Created (food data)
+```
 3. **Preventing Name Collision Bugs:**
    - Users can name a custom food "Banana" without conflicting with the global catalog "Banana", because custom foods are differentiated by `id` and `createdByUserId`.

@@ -107,3 +107,103 @@ graph TD
    - If the password supplied in `DELETE /:recipeId` is wrong, `confirmActionController` throws `InvalidActionConfirmationError` (HTTP 401).
 3. **Attempting to Edit Inactive / Archived Recipes:**
    - `findOwnedActiveRecipe` filters strictly on `isActive: true`. Attempting to update an archived recipe returns `RecipeNotFoundError` (HTTP 404).
+
+---
+
+## 7. Request Sequences & Execution Flows
+
+### A. `POST /api/recipes` (Create Custom Recipe)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as RecipeController
+    participant Service as RecipeService
+    participant Repo as RecipeRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: POST /api/recipes (Bearer Token, body: { nameEn, servings, ingredients })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateBody(createRecipeSchema)
+    Validator->>Router: req.validatedBody
+    Router->>Controller: createRecipeController
+    Controller->>Service: createRecipe(userId, input)
+    Service->>Repo: findAccessibleFoods(userId, foodIds)
+    Repo->>DB: SELECT accessible foods
+    DB-->>Repo: Food records
+    Service->>Service: calculateRecipeNutritionalProfile(ingredients, foods)
+    Service->>Repo: createRecipe(userId, recipeData, ingredientRows)
+    Repo->>DB: Transaction: INSERT recipe & recipe_ingredients
+    DB-->>Repo: Created recipe entity
+    Repo-->>Service: Recipe entity
+    Service-->>Controller: Serialized recipe
+    Controller-->>Frontend: 201 Created (recipe data)
+```
+
+### B. `GET /api/recipes/search` (Search Recipes Catalog)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as RecipeController
+    participant Service as RecipeService
+    participant Repo as RecipeRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: GET /api/recipes/search?search=Chicken&page=1&limit=20 (Bearer Token)
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateQuery(getRecipesQuerySchema)
+    Validator->>Router: req.validatedQuery
+    Router->>Controller: searchRecipesController
+    Controller->>Service: searchRecipes(userId, searchParams)
+    Service->>Repo: searchRecipes(userId, searchParams)
+    Repo->>DB: SELECT recipes WHERE isActive=true AND (global OR owned)
+    DB-->>Repo: Recipes & total count
+    Repo-->>Service: { recipes, totalItems }
+    Service-->>Controller: Paginated recipes & metadata
+    Controller-->>Frontend: 200 OK (recipes list)
+```
+
+### C. `DELETE /api/recipes/:recipeId` (Archive Custom Recipe)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Frontend
+    participant Router as Express Router
+    participant Auth as authenticateToken
+    participant Validator as Zod Validator
+    participant Controller as RecipeController
+    participant Service as RecipeService
+    participant Repo as RecipeRepository
+    participant DB as PostgreSQL
+
+    Frontend->>Router: DELETE /api/recipes/:recipeId (Bearer Token, body: { password })
+    Router->>Auth: authenticateToken
+    Auth->>Router: req.user
+    Router->>Validator: validateParams & validateBody
+    Validator->>Router: req.validatedParams & req.validatedBody
+    Router->>Controller: deleteRecipeController
+    Controller->>Service: deleteRecipe(userId, recipeId, password)
+    Service->>DB: Verify user password
+    Service->>Repo: findOwnedActiveRecipe(recipeId, userId)
+    Repo->>DB: SELECT recipe
+    DB-->>Repo: Recipe entity
+    Service->>Repo: archiveOwnedRecipe(recipeId, userId)
+    Repo->>DB: UPDATE recipes SET isActive=false, archivedAt=now
+    DB-->>Repo: Success
+    Repo-->>Service: Deleted confirmation
+    Service-->>Controller: Success
+    Controller-->>Frontend: 204 No Content
+```
+

@@ -25,6 +25,8 @@ The versions below were observed in the local project on 2026-08-26.
 | [Environment variables and dotenv](./dotenv/README.md) | dotenv 17.4.2, currently transitive | Local configuration and secret loading |
 | [Node.js Test Runner](./node-test-runner/README.md) | Built into Node.js | Contract testing with `node:test` and `node:assert` |
 | [Nodemon](./nodemon/README.md) | 3.1.14 | Automatic development-server restarts |
+| [Cloudinary](./cloudinary/README.md) | 2.11.0 | Cloud media asset management and optimization |
+
 
 ## Auth stack at a glance
 
