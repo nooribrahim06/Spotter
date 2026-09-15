@@ -14,7 +14,8 @@
     "worker:email": "node src/workers/email.worker.js",
     "seed:recipes": "prisma generate && node prisma/seed-recipes.js",
     "seed:foods": "prisma generate && node prisma/seed-food.js",
-    "seed:exercises": "prisma generate && node prisma/seed-exercises.js"
+    "seed:exercises": "prisma generate && node prisma/seed-exercises.js",
+    "seed:plans": "prisma generate && node prisma/seed-plans-template.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

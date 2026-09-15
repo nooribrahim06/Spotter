@@ -1,0 +1,1884 @@
+[
+  {
+    "id": "b662afa3-b495-5f4e-b8ea-81d2a323085b",
+    "name": "Lose Weight — Beginner",
+    "description": "Base training blueprint for fat-loss plans. Final calorie targets, pace and workload must be adapted to the user's current state, target date, recovery and safety constraints.",
+    "goalType": "LOSE_WEIGHT",
+    "experienceLevel": "BEGINNER",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "537e9fa3-b230-5db2-b340-5fce9207df76",
+        "dayNumber": 1,
+        "name": "Full Body Strength A",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "RPE 6-7; keep 2-4 reps in reserve",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "conditioning": "Optional 8-12 min easy finisher",
+          "priority": "TECHNIQUE_AND_ADHERENCE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "4e64fbd1-6fbd-5ba0-80ce-b29484e5a54c",
+        "dayNumber": 2,
+        "name": "Low-Impact Cardio + Mobility",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_CONDITIONING_AND_MOBILITY",
+          "targetDurationMinutes": 40,
+          "intensityGuidance": "Comfortable conversational pace; avoid all-out efforts",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "MOBILITY",
+            "CORE"
+          ],
+          "volumeGuidance": "Cardio 25-35 min plus mobility",
+          "priority": "CONSISTENCY_AND_RECOVERY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "b5fb7c94-f6f0-5636-b8d4-5a2331ae41a6",
+        "dayNumber": 3,
+        "name": "Full Body Strength B",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 6-7; keep 2-4 reps in reserve",
+          "movementPatterns": [
+            "LUNGE_OR_SINGLE_LEG",
+            "HINGE",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "conditioning": "Optional 8-10 min moderate finisher",
+          "priority": "TECHNIQUE_AND_ADHERENCE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "a207dbee-7f1e-5f66-a192-d17047f8350d",
+    "name": "Lose Weight — Intermediate",
+    "description": "Base training blueprint for fat-loss plans. Final calorie targets, pace and workload must be adapted to the user's current state, target date, recovery and safety constraints.",
+    "goalType": "LOSE_WEIGHT",
+    "experienceLevel": "INTERMEDIATE",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "8fe01a4c-7997-527b-9fa8-e6430442cbc8",
+        "dayNumber": 1,
+        "name": "Upper Strength + Conditioning",
+        "workoutBlueprint": {
+          "focus": "UPPER_STRENGTH",
+          "targetDurationMinutes": 60,
+          "intensityGuidance": "RPE 7-8; mostly 2-3 reps in reserve",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "conditioning": "10-15 min moderate conditioning",
+          "priority": "STRENGTH_AND_ENERGY_EXPENDITURE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "97cfdb4c-c45e-5c81-bc65-7dab5214526b",
+        "dayNumber": 2,
+        "name": "Lower Strength",
+        "workoutBlueprint": {
+          "focus": "LOWER_STRENGTH",
+          "targetDurationMinutes": 60,
+          "intensityGuidance": "RPE 7-8; mostly 2-3 reps in reserve",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "priority": "STRENGTH_PRESERVATION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "ff930f1a-b6bb-5279-b9ef-bab19f7d9127",
+        "dayNumber": 3,
+        "name": "Aerobic Conditioning",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_CONDITIONING",
+          "targetDurationMinutes": 45,
+          "intensityGuidance": "Mostly Zone 2 with short controlled tempo segments",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "TEMPO_CARDIO",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "35-45 min total aerobic work",
+          "priority": "AEROBIC_BASE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "5ab7622e-4d99-5a37-9e8d-5d24490b8595",
+        "dayNumber": 4,
+        "name": "Full Body Density",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_DENSITY",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 7-8; controlled rests, never sacrifice technique",
+          "movementPatterns": [
+            "SQUAT_OR_LUNGE",
+            "HINGE",
+            "PUSH",
+            "PULL",
+            "CARRY_OR_CORE"
+          ],
+          "volumeGuidance": "3 work sets per major pattern",
+          "conditioning": "Short 8-12 min finisher",
+          "priority": "WORK_CAPACITY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "a7531b61-4a4c-58a5-9211-1792828d8fa1",
+    "name": "Lose Weight — Advanced",
+    "description": "Base training blueprint for fat-loss plans. Final calorie targets, pace and workload must be adapted to the user's current state, target date, recovery and safety constraints.",
+    "goalType": "LOSE_WEIGHT",
+    "experienceLevel": "ADVANCED",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "42856892-2557-5fdb-ac1c-aa1025fd1d82",
+        "dayNumber": 1,
+        "name": "Upper Strength",
+        "workoutBlueprint": {
+          "focus": "UPPER_STRENGTH",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; manage fatigue across the week",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "3-5 work sets across primary patterns",
+          "priority": "STRENGTH_RETENTION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "7714115e-9b32-5955-bef1-b041439d7217",
+        "dayNumber": 2,
+        "name": "Lower Strength",
+        "workoutBlueprint": {
+          "focus": "LOWER_STRENGTH",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; manage fatigue across the week",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "3-5 work sets across primary patterns",
+          "priority": "STRENGTH_RETENTION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "5cf1b24b-d8ac-5057-8f9f-0fd628ba923b",
+        "dayNumber": 3,
+        "name": "Intervals + Core",
+        "workoutBlueprint": {
+          "focus": "CONDITIONING_INTERVALS",
+          "targetDurationMinutes": 45,
+          "intensityGuidance": "Hard but repeatable intervals; avoid maximal sprints by default",
+          "movementPatterns": [
+            "INTERVAL_CARDIO",
+            "CORE",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "6-10 controlled work intervals plus core",
+          "priority": "CONDITIONING"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "6e82b704-fb86-5c48-9ce2-0ca25188bc73",
+        "dayNumber": 4,
+        "name": "Upper Hypertrophy + Zone 2",
+        "workoutBlueprint": {
+          "focus": "UPPER_HYPERTROPHY",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9 with most sets 1-3 reps in reserve",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "10-16 challenging upper-body sets",
+          "conditioning": "15-20 min easy Zone 2",
+          "priority": "LEAN_MASS_RETENTION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "10390fe2-56fe-577b-9a2b-0ae767ccbad8",
+        "dayNumber": 5,
+        "name": "Lower Hypertrophy + Conditioning",
+        "workoutBlueprint": {
+          "focus": "LOWER_HYPERTROPHY",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9 with most sets 1-3 reps in reserve",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "GLUTES",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "10-16 challenging lower-body sets",
+          "conditioning": "8-12 min moderate conditioning",
+          "priority": "LEAN_MASS_RETENTION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "DEFICIT_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_HIGH_SATIETY"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "246f0912-f24a-59fb-9861-50742066236e",
+    "name": "Maintain Weight — Beginner",
+    "description": "Balanced strength and cardiovascular blueprint for maintaining body weight while supporting health, performance and adherence.",
+    "goalType": "MAINTAIN_WEIGHT",
+    "experienceLevel": "BEGINNER",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "1428c7f9-9bc0-5041-a0fc-80e27a5becae",
+        "dayNumber": 1,
+        "name": "Full Body Strength A",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "RPE 6-7; keep 2-4 reps in reserve",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "BALANCED_FITNESS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "fdfba288-5159-5891-b7b6-42d85a8e6a6e",
+        "dayNumber": 2,
+        "name": "Aerobic Base + Mobility",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_BASE",
+          "targetDurationMinutes": 40,
+          "intensityGuidance": "Conversational pace",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "MOBILITY",
+            "CORE"
+          ],
+          "volumeGuidance": "25-35 min cardio plus mobility",
+          "priority": "HEALTH_AND_RECOVERY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "6e51e4e6-0f95-5fba-a0e4-39f2887ec36d",
+        "dayNumber": 3,
+        "name": "Full Body Strength B",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 6-7; keep 2-4 reps in reserve",
+          "movementPatterns": [
+            "LUNGE_OR_SINGLE_LEG",
+            "HINGE",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "BALANCED_FITNESS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "a72c57ac-f118-523c-aaf7-fe3af80d9d67",
+    "name": "Maintain Weight — Intermediate",
+    "description": "Balanced strength and cardiovascular blueprint for maintaining body weight while supporting health, performance and adherence.",
+    "goalType": "MAINTAIN_WEIGHT",
+    "experienceLevel": "INTERMEDIATE",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "b8fba755-c7ce-50f2-ad7b-324877f49c4e",
+        "dayNumber": 1,
+        "name": "Upper Body",
+        "workoutBlueprint": {
+          "focus": "UPPER_BALANCED",
+          "targetDurationMinutes": 60,
+          "intensityGuidance": "RPE 7-8",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "priority": "STRENGTH_AND_MUSCLE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "ea517452-65db-5577-9ba2-7de01d75856c",
+        "dayNumber": 2,
+        "name": "Lower Body",
+        "workoutBlueprint": {
+          "focus": "LOWER_BALANCED",
+          "targetDurationMinutes": 60,
+          "intensityGuidance": "RPE 7-8",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "priority": "STRENGTH_AND_MUSCLE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "eead743a-73da-53ec-97ce-5549f0da9d5d",
+        "dayNumber": 3,
+        "name": "Aerobic Conditioning",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_CONDITIONING",
+          "targetDurationMinutes": 45,
+          "intensityGuidance": "Mostly Zone 2; optional controlled tempo",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "TEMPO_CARDIO",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "35-45 min total",
+          "priority": "CARDIOVASCULAR_FITNESS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "f4a17e96-a913-5559-a0a6-4bddf4ffdd16",
+        "dayNumber": 4,
+        "name": "Full Body Mixed",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_MIXED",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 7-8",
+          "movementPatterns": [
+            "SQUAT_OR_LUNGE",
+            "HINGE",
+            "PUSH",
+            "PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-4 work sets per pattern",
+          "conditioning": "Optional short easy finisher",
+          "priority": "GENERAL_PREPAREDNESS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "17edb2b4-a83f-5ed6-ad14-2dcc3c10f187",
+    "name": "Maintain Weight — Advanced",
+    "description": "Balanced strength and cardiovascular blueprint for maintaining body weight while supporting health, performance and adherence.",
+    "goalType": "MAINTAIN_WEIGHT",
+    "experienceLevel": "ADVANCED",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "a7e5c071-3e19-5ce3-84d1-1d1835da340b",
+        "dayNumber": 1,
+        "name": "Upper Strength",
+        "workoutBlueprint": {
+          "focus": "UPPER_STRENGTH",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL"
+          ],
+          "volumeGuidance": "3-5 work sets across primary patterns",
+          "priority": "STRENGTH"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "013b65d0-3d88-5e76-93bd-42d697c4a860",
+        "dayNumber": 2,
+        "name": "Lower Strength",
+        "workoutBlueprint": {
+          "focus": "LOWER_STRENGTH",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "CORE"
+          ],
+          "volumeGuidance": "3-5 work sets across primary patterns",
+          "priority": "STRENGTH"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "64e8320b-8816-5c43-9d0f-e5c60c441fa0",
+        "dayNumber": 3,
+        "name": "Zone 2 + Mobility",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_BASE_AND_MOBILITY",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "Conversational aerobic pace",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "MOBILITY",
+            "CORE"
+          ],
+          "volumeGuidance": "35-45 min cardio plus mobility",
+          "priority": "RECOVERY_AND_AEROBIC_BASE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "52608e5b-bddc-5fa5-9034-a533021ee707",
+        "dayNumber": 4,
+        "name": "Upper Hypertrophy",
+        "workoutBlueprint": {
+          "focus": "UPPER_HYPERTROPHY",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; mostly 1-3 reps in reserve",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "10-16 challenging upper-body sets",
+          "priority": "MUSCLE_RETENTION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "97ca04c7-e011-550d-b2c2-b3ffc4287af7",
+        "dayNumber": 5,
+        "name": "Lower Hypertrophy + Core",
+        "workoutBlueprint": {
+          "focus": "LOWER_HYPERTROPHY",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; mostly 1-3 reps in reserve",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "GLUTES",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "10-16 challenging lower-body sets",
+          "priority": "MUSCLE_RETENTION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE",
+          "carbTiming": "MATCH_TRAINING_DEMAND",
+          "mealPattern": "BALANCED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "1c157cc7-7bab-5e60-919b-7c0f892b2352",
+    "name": "Gain Weight — Beginner",
+    "description": "Progressive resistance-training blueprint supporting healthy weight gain. Final surplus and food strategy are personalized to appetite, body context and target date.",
+    "goalType": "GAIN_WEIGHT",
+    "experienceLevel": "BEGINNER",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "e8579ce0-11fa-5f2a-a4da-78a06cb09f4c",
+        "dayNumber": 1,
+        "name": "Full Body Strength A",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "RPE 6-7; build technique before load",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "PROGRESSIVE_OVERLOAD"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "6df3deaf-d34b-564c-a2cf-171d585fdc8d",
+        "dayNumber": 2,
+        "name": "Full Body Strength B",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 6-7; build technique before load",
+          "movementPatterns": [
+            "LUNGE_OR_SINGLE_LEG",
+            "HINGE",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "PROGRESSIVE_OVERLOAD"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "9a7259ea-92ce-5513-b69f-77dc79885003",
+        "dayNumber": 3,
+        "name": "Full Body Strength C",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 6-8; controlled progression",
+          "movementPatterns": [
+            "SQUAT_OR_LEG_PRESS",
+            "HIP_HINGE",
+            "PUSH",
+            "PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "PROGRESSIVE_OVERLOAD"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "5823ad72-0817-5b97-90e9-deea02468a19",
+    "name": "Gain Weight — Intermediate",
+    "description": "Progressive resistance-training blueprint supporting healthy weight gain. Final surplus and food strategy are personalized to appetite, body context and target date.",
+    "goalType": "GAIN_WEIGHT",
+    "experienceLevel": "INTERMEDIATE",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "1b472319-c33d-5f73-9826-6792d03591b8",
+        "dayNumber": 1,
+        "name": "Upper Strength",
+        "workoutBlueprint": {
+          "focus": "UPPER_STRENGTH",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-8",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "priority": "STRENGTH_AND_MASS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "56be12bf-b8b8-526c-8f9f-9fbf69e933f8",
+        "dayNumber": 2,
+        "name": "Lower Strength",
+        "workoutBlueprint": {
+          "focus": "LOWER_STRENGTH",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-8",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "priority": "STRENGTH_AND_MASS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "4f76e0cd-1892-5362-88ca-2263c820d610",
+        "dayNumber": 3,
+        "name": "Upper Hypertrophy",
+        "workoutBlueprint": {
+          "focus": "UPPER_HYPERTROPHY",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-8; mostly 2-3 reps in reserve",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "10-14 challenging upper-body sets",
+          "priority": "MUSCLE_GAIN"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "438a9c9b-768d-5415-b2f1-cfc1fb411470",
+        "dayNumber": 4,
+        "name": "Lower Hypertrophy",
+        "workoutBlueprint": {
+          "focus": "LOWER_HYPERTROPHY",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-8; mostly 2-3 reps in reserve",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "GLUTES",
+            "CALVES"
+          ],
+          "volumeGuidance": "10-14 challenging lower-body sets",
+          "priority": "MUSCLE_GAIN"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "dd202c26-1f28-527d-95fd-2d1fb03176a6",
+    "name": "Gain Weight — Advanced",
+    "description": "Progressive resistance-training blueprint supporting healthy weight gain. Final surplus and food strategy are personalized to appetite, body context and target date.",
+    "goalType": "GAIN_WEIGHT",
+    "experienceLevel": "ADVANCED",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "fae456b1-0d96-5d0f-ac87-05d742e5630d",
+        "dayNumber": 1,
+        "name": "Push",
+        "workoutBlueprint": {
+          "focus": "PUSH_STRENGTH_HYPERTROPHY",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "VERTICAL_PUSH",
+            "TRICEPS"
+          ],
+          "volumeGuidance": "12-18 challenging push sets",
+          "priority": "MASS_GAIN"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "98f7b14e-3eb7-5a58-b8b2-a3af51f7e237",
+        "dayNumber": 2,
+        "name": "Pull",
+        "workoutBlueprint": {
+          "focus": "PULL_STRENGTH_HYPERTROPHY",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9",
+          "movementPatterns": [
+            "HORIZONTAL_PULL",
+            "VERTICAL_PULL",
+            "BICEPS",
+            "REAR_DELTS"
+          ],
+          "volumeGuidance": "12-18 challenging pull sets",
+          "priority": "MASS_GAIN"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "a1a9e19d-37a2-5bea-927a-b02f65939058",
+        "dayNumber": 3,
+        "name": "Legs",
+        "workoutBlueprint": {
+          "focus": "LOWER_STRENGTH_HYPERTROPHY",
+          "targetDurationMinutes": 75,
+          "intensityGuidance": "RPE 7-9",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "GLUTES",
+            "CALVES"
+          ],
+          "volumeGuidance": "14-20 challenging lower-body sets",
+          "priority": "MASS_GAIN"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "7294ae40-6935-53af-9f90-f875242700e5",
+        "dayNumber": 4,
+        "name": "Upper Volume",
+        "workoutBlueprint": {
+          "focus": "UPPER_VOLUME",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; manage weekly fatigue",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "12-18 upper-body sets",
+          "priority": "VOLUME_ACCUMULATION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "b2440a67-1160-5ade-bc48-37850c510867",
+        "dayNumber": 5,
+        "name": "Lower Volume",
+        "workoutBlueprint": {
+          "focus": "LOWER_VOLUME",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; manage weekly fatigue",
+          "movementPatterns": [
+            "SQUAT_VARIANT",
+            "HINGE_VARIANT",
+            "SINGLE_LEG",
+            "GLUTES",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "12-18 lower-body sets",
+          "priority": "VOLUME_ACCUMULATION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SURPLUS_IF_FEASIBLE",
+          "carbTiming": "PRIORITIZE_AROUND_TRAINING",
+          "mealPattern": "ENERGY_DENSE_HIGH_PROTEIN",
+          "appetiteStrategy": "USE_EASY_TO_EAT_ENERGY_DENSE_OPTIONS_IF_NEEDED"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "9958e909-bd40-50d2-a315-14b2afbe0bad",
+    "name": "Build Muscle — Beginner",
+    "description": "Hypertrophy-focused blueprint with progressive overload and volume appropriate to experience. Final exercise selection and volume are personalized.",
+    "goalType": "BUILD_MUSCLE",
+    "experienceLevel": "BEGINNER",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "de279cde-21ca-5de1-9c75-c5a1ac9bcfac",
+        "dayNumber": 1,
+        "name": "Full Body Hypertrophy A",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_HYPERTROPHY",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "RPE 6-7; prioritize technique and repeatability",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "MUSCLE_SKILL_FOUNDATION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "7989cfcf-e41c-591c-bf60-5f162128d9f8",
+        "dayNumber": 2,
+        "name": "Full Body Hypertrophy B",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_HYPERTROPHY",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 6-7; prioritize technique and repeatability",
+          "movementPatterns": [
+            "SINGLE_LEG",
+            "HINGE",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "MUSCLE_SKILL_FOUNDATION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "33b8366b-9dee-5018-8ea9-3ca7a21e5837",
+        "dayNumber": 3,
+        "name": "Full Body Hypertrophy C",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_HYPERTROPHY",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 6-8; controlled progressive overload",
+          "movementPatterns": [
+            "SQUAT_OR_LEG_PRESS",
+            "HIP_HINGE",
+            "PUSH",
+            "PULL",
+            "ARMS",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 work sets per major pattern",
+          "priority": "PROGRESSIVE_OVERLOAD"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "cb5c2c63-a121-570c-9be8-c765963ab453",
+    "name": "Build Muscle — Intermediate",
+    "description": "Hypertrophy-focused blueprint with progressive overload and volume appropriate to experience. Final exercise selection and volume are personalized.",
+    "goalType": "BUILD_MUSCLE",
+    "experienceLevel": "INTERMEDIATE",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "ec986f3a-a1fd-55e0-83e1-657b203b2f9a",
+        "dayNumber": 1,
+        "name": "Upper A",
+        "workoutBlueprint": {
+          "focus": "UPPER_HYPERTROPHY",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-8; mostly 2-3 reps in reserve",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "ARMS"
+          ],
+          "volumeGuidance": "10-14 challenging upper-body sets",
+          "priority": "HYPERTROPHY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "8e395af5-7d3c-517e-bab0-bc23a32c4170",
+        "dayNumber": 2,
+        "name": "Lower A",
+        "workoutBlueprint": {
+          "focus": "LOWER_HYPERTROPHY",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-8; mostly 2-3 reps in reserve",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "10-14 challenging lower-body sets",
+          "priority": "HYPERTROPHY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "d63f6ed2-1c33-560d-9f23-45f91275f39b",
+        "dayNumber": 3,
+        "name": "Upper B",
+        "workoutBlueprint": {
+          "focus": "UPPER_HYPERTROPHY_VARIATION",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-9; mostly 1-3 reps in reserve",
+          "movementPatterns": [
+            "INCLINE_OR_VERTICAL_PUSH",
+            "ROW_VARIATION",
+            "VERTICAL_PULL",
+            "DELTS",
+            "ARMS"
+          ],
+          "volumeGuidance": "10-16 challenging upper-body sets",
+          "priority": "HYPERTROPHY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "6a3242e4-7cd1-5b4d-9a4c-ce6da8a352c4",
+        "dayNumber": 4,
+        "name": "Lower B",
+        "workoutBlueprint": {
+          "focus": "LOWER_HYPERTROPHY_VARIATION",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "RPE 7-9; mostly 1-3 reps in reserve",
+          "movementPatterns": [
+            "SQUAT_VARIATION",
+            "HINGE_VARIATION",
+            "SINGLE_LEG",
+            "GLUTES",
+            "CALVES"
+          ],
+          "volumeGuidance": "10-16 challenging lower-body sets",
+          "priority": "HYPERTROPHY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "165822a5-f023-5ebf-ab46-0c58248bd0af",
+    "name": "Build Muscle — Advanced",
+    "description": "Hypertrophy-focused blueprint with progressive overload and volume appropriate to experience. Final exercise selection and volume are personalized.",
+    "goalType": "BUILD_MUSCLE",
+    "experienceLevel": "ADVANCED",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "f5e4790d-fcb0-5593-8782-c43714221083",
+        "dayNumber": 1,
+        "name": "Push",
+        "workoutBlueprint": {
+          "focus": "PUSH_HYPERTROPHY",
+          "targetDurationMinutes": 75,
+          "intensityGuidance": "RPE 7-9; manage proximity to failure by exercise",
+          "movementPatterns": [
+            "HORIZONTAL_PUSH",
+            "VERTICAL_PUSH",
+            "DELTS",
+            "TRICEPS"
+          ],
+          "volumeGuidance": "12-20 challenging push sets",
+          "priority": "HYPERTROPHY_VOLUME"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "20f98035-83ef-5a8e-bc5d-a19d4d348269",
+        "dayNumber": 2,
+        "name": "Pull",
+        "workoutBlueprint": {
+          "focus": "PULL_HYPERTROPHY",
+          "targetDurationMinutes": 75,
+          "intensityGuidance": "RPE 7-9; manage proximity to failure by exercise",
+          "movementPatterns": [
+            "HORIZONTAL_PULL",
+            "VERTICAL_PULL",
+            "REAR_DELTS",
+            "BICEPS"
+          ],
+          "volumeGuidance": "12-20 challenging pull sets",
+          "priority": "HYPERTROPHY_VOLUME"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "dc212d2c-c2f6-5681-9914-5e365105bf4d",
+        "dayNumber": 3,
+        "name": "Legs",
+        "workoutBlueprint": {
+          "focus": "LEGS_HYPERTROPHY",
+          "targetDurationMinutes": 80,
+          "intensityGuidance": "RPE 7-9; manage proximity to failure by exercise",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "SINGLE_LEG",
+            "GLUTES",
+            "CALVES"
+          ],
+          "volumeGuidance": "14-22 challenging lower-body sets",
+          "priority": "HYPERTROPHY_VOLUME"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "f2e63dcb-b7cd-5482-bec9-6b9fbb9983a6",
+        "dayNumber": 4,
+        "name": "Upper Specialization",
+        "workoutBlueprint": {
+          "focus": "UPPER_SPECIALIZATION",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; bias lagging upper-body groups",
+          "movementPatterns": [
+            "PUSH",
+            "PULL",
+            "DELTS",
+            "ARMS"
+          ],
+          "volumeGuidance": "12-18 sets allocated by user needs",
+          "priority": "WEAK_POINT_SPECIALIZATION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "faeec1be-0eb6-5114-9d87-ec8d180cb0fb",
+        "dayNumber": 5,
+        "name": "Lower Specialization",
+        "workoutBlueprint": {
+          "focus": "LOWER_SPECIALIZATION",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; bias lagging lower-body groups",
+          "movementPatterns": [
+            "QUADS",
+            "HAMSTRINGS",
+            "GLUTES",
+            "CALVES",
+            "CORE"
+          ],
+          "volumeGuidance": "12-18 sets allocated by user needs",
+          "priority": "WEAK_POINT_SPECIALIZATION"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "SMALL_SURPLUS_OR_MAINTENANCE_BASED_ON_USER_CONTEXT",
+          "carbTiming": "PRIORITIZE_PRE_AND_POST_TRAINING",
+          "mealPattern": "HIGH_PROTEIN_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "4a4c9208-ed1a-5f3e-944d-1390cda9624d",
+    "name": "Improve Fitness — Beginner",
+    "description": "Hybrid strength and conditioning blueprint designed to improve general fitness, aerobic capacity and work capacity while respecting experience and recovery.",
+    "goalType": "IMPROVE_FITNESS",
+    "experienceLevel": "BEGINNER",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "74f4e1fd-c659-533f-95e3-4d045e214ff1",
+        "dayNumber": 1,
+        "name": "Full Body Circuit",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_GENERAL_FITNESS",
+          "targetDurationMinutes": 45,
+          "intensityGuidance": "RPE 5-7; smooth continuous work with good technique",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "PUSH",
+            "PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "2-3 rounds or standard sets",
+          "conditioning": "Easy-moderate circuit pacing",
+          "priority": "MOVEMENT_CONFIDENCE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "30a6840f-c784-56b8-8471-59a75cd01a2b",
+        "dayNumber": 2,
+        "name": "Zone 2 Cardio + Mobility",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_BASE",
+          "targetDurationMinutes": 40,
+          "intensityGuidance": "Conversational pace",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "25-35 min aerobic work plus mobility",
+          "priority": "AEROBIC_BASE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "084a5836-1450-5c4b-b49c-5093dd07afb0",
+        "dayNumber": 3,
+        "name": "Strength + Controlled Intervals",
+        "workoutBlueprint": {
+          "focus": "STRENGTH_AND_CONDITIONING",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "Strength RPE 6-7; intervals hard but repeatable",
+          "movementPatterns": [
+            "SQUAT_OR_LUNGE",
+            "PUSH",
+            "PULL",
+            "CORE",
+            "INTERVAL_CARDIO"
+          ],
+          "volumeGuidance": "2-3 work sets per strength pattern",
+          "conditioning": "4-6 short controlled intervals",
+          "priority": "GENERAL_FITNESS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "56aeacc9-5cdd-582a-8af8-ffa5dbc3ae3b",
+    "name": "Improve Fitness — Intermediate",
+    "description": "Hybrid strength and conditioning blueprint designed to improve general fitness, aerobic capacity and work capacity while respecting experience and recovery.",
+    "goalType": "IMPROVE_FITNESS",
+    "experienceLevel": "INTERMEDIATE",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "9de7377e-d173-52a1-b38c-055c0f989edd",
+        "dayNumber": 1,
+        "name": "Strength A",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 60,
+          "intensityGuidance": "RPE 7-8",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "HORIZONTAL_PUSH",
+            "HORIZONTAL_PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "priority": "STRENGTH_BASE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "dcc63740-fa75-5af6-8bfe-32a59dcbeda7",
+        "dayNumber": 2,
+        "name": "Interval Conditioning",
+        "workoutBlueprint": {
+          "focus": "INTERVAL_CONDITIONING",
+          "targetDurationMinutes": 45,
+          "intensityGuidance": "Hard but repeatable; avoid maximal sprinting by default",
+          "movementPatterns": [
+            "INTERVAL_CARDIO",
+            "CORE",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "6-10 work intervals",
+          "priority": "WORK_CAPACITY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "eee33a27-52f8-50ec-b7d3-2ba231e48e08",
+        "dayNumber": 3,
+        "name": "Strength B",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH_VARIATION",
+          "targetDurationMinutes": 60,
+          "intensityGuidance": "RPE 7-8",
+          "movementPatterns": [
+            "SINGLE_LEG",
+            "HINGE_VARIATION",
+            "VERTICAL_PUSH",
+            "VERTICAL_PULL",
+            "CARRY_OR_CORE"
+          ],
+          "volumeGuidance": "3-4 work sets on primary patterns",
+          "priority": "STRENGTH_BASE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "31174f74-bc94-5438-be39-5f1707e89406",
+        "dayNumber": 4,
+        "name": "Aerobic Endurance",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_ENDURANCE",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "Mostly Zone 2 with optional controlled tempo",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "TEMPO_CARDIO",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "40-50 min total aerobic work",
+          "priority": "ENDURANCE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  },
+  {
+    "id": "2f638936-2f11-5ca2-ba44-2a151678fe50",
+    "name": "Improve Fitness — Advanced",
+    "description": "Hybrid strength and conditioning blueprint designed to improve general fitness, aerobic capacity and work capacity while respecting experience and recovery.",
+    "goalType": "IMPROVE_FITNESS",
+    "experienceLevel": "ADVANCED",
+    "durationWeeks": null,
+    "days": [
+      {
+        "id": "5347e31d-84f8-5af7-b577-44811e9fc573",
+        "dayNumber": 1,
+        "name": "Strength",
+        "workoutBlueprint": {
+          "focus": "FULL_BODY_STRENGTH",
+          "targetDurationMinutes": 70,
+          "intensityGuidance": "RPE 7-9; manage fatigue around conditioning sessions",
+          "movementPatterns": [
+            "SQUAT",
+            "HINGE",
+            "PUSH",
+            "PULL",
+            "CORE"
+          ],
+          "volumeGuidance": "3-5 work sets on primary patterns",
+          "priority": "STRENGTH"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "791fb5ed-7604-5a5d-8611-81e0d76fbc56",
+        "dayNumber": 2,
+        "name": "Threshold Conditioning",
+        "workoutBlueprint": {
+          "focus": "THRESHOLD_CONDITIONING",
+          "targetDurationMinutes": 50,
+          "intensityGuidance": "Sustained hard but controlled efforts",
+          "movementPatterns": [
+            "TEMPO_CARDIO",
+            "INTERVAL_CARDIO",
+            "CORE"
+          ],
+          "volumeGuidance": "3-6 longer controlled intervals",
+          "priority": "LACTATE_THRESHOLD"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "63e0b512-c9df-5e01-bfd2-0a1f28da8cb2",
+        "dayNumber": 3,
+        "name": "Strength + Work Capacity",
+        "workoutBlueprint": {
+          "focus": "STRENGTH_AND_WORK_CAPACITY",
+          "targetDurationMinutes": 65,
+          "intensityGuidance": "Strength RPE 7-8; conditioning repeatable",
+          "movementPatterns": [
+            "SINGLE_LEG",
+            "HINGE",
+            "PUSH",
+            "PULL",
+            "CARRY_OR_CORE"
+          ],
+          "volumeGuidance": "3-4 work sets per pattern",
+          "conditioning": "10-15 min mixed conditioning",
+          "priority": "WORK_CAPACITY"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "cbbf4d4a-4575-5af2-9d49-d847a4289796",
+        "dayNumber": 4,
+        "name": "Long Aerobic Base",
+        "workoutBlueprint": {
+          "focus": "AEROBIC_ENDURANCE",
+          "targetDurationMinutes": 60,
+          "intensityGuidance": "Conversational to steady aerobic pace",
+          "movementPatterns": [
+            "ZONE_2_CARDIO",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "50-60 min aerobic work",
+          "priority": "ENDURANCE"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      },
+      {
+        "id": "6d404bd9-74e4-5d91-8362-01c3a4d7d9e6",
+        "dayNumber": 5,
+        "name": "Mixed Modal Conditioning",
+        "workoutBlueprint": {
+          "focus": "MIXED_MODAL_CONDITIONING",
+          "targetDurationMinutes": 55,
+          "intensityGuidance": "RPE 7-8 average; keep output repeatable",
+          "movementPatterns": [
+            "CARDIO",
+            "BODYWEIGHT_OR_RESISTANCE",
+            "CARRY_OR_CORE",
+            "MOBILITY"
+          ],
+          "volumeGuidance": "Structured rounds with controlled fatigue",
+          "priority": "GENERAL_PHYSICAL_PREPAREDNESS"
+        },
+        "nutritionBlueprint": {
+          "proteinPriority": "HIGH",
+          "proteinDistribution": "EVEN_ACROSS_MEALS",
+          "hydration": "CONSISTENT_DAILY",
+          "targetDateHandling": "ADJUST_FINAL_TARGETS_IN_GENERATION_SERVICE",
+          "energyStrategy": "MAINTENANCE_OR_GOAL_ALIGNED",
+          "carbTiming": "MATCH_CONDITIONING_DEMAND",
+          "mealPattern": "BALANCED_PERFORMANCE_SUPPORT"
+        },
+        "notes": "Reference blueprint only. Generation service must adapt exercises, volume, nutrition targets and schedule to the user."
+      }
+    ]
+  }
+]

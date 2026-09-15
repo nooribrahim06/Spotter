@@ -219,6 +219,34 @@ enum WorkoutStatus {
   CANCELLED
 }
 
+// ======================================================
+// PLAN ENUMS
+// ======================================================
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+  ENDED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum WorkoutSlot {
+  MORNING
+  AFTERNOON
+  EVENING
+  ANYTIME
+}
+
 // A registered Spotter account. One user can have multiple active device sessions.
 model User {
   id           String @id @default(uuid()) @db.Uuid
@@ -258,6 +286,7 @@ model User {
   createdRecipes      Recipe[]             @relation("UserCreatedRecipes")
   meals               Meal[]
   workouts            Workout[]
+  plans               Plan[]
 
   @@map("users")
 }
@@ -405,6 +434,7 @@ model Goal {
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   progressEntries ProgressEntry[]
+  plans           Plan[]
 
   @@unique([userId, isOnboardingGoal])
   @@unique([userId], map: "one_active_goal_per_user", where: raw("status = 'ACTIVE'"))
@@ -755,9 +785,16 @@ model Meal {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items MealItem[]
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items              MealItem[]
+  sourcePlanDayId    String?    @map("source_plan_day_id") @db.Uuid
+  sourceMealOptionId String?    @map("source_meal_option_id") @db.Uuid
+  scheduledDate      DateTime?  @map("scheduled_date") @db.Date
 
+  sourcePlanDay PlanDay? @relation(fields: [sourcePlanDayId], references: [id], onDelete: SetNull)
+
+  @@index([sourcePlanDayId])
+  @@index([scheduledDate])
   @@index([userId, occurredAt])
   @@map("meals")
 }
@@ -825,7 +862,7 @@ model Exercise {
 
   createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
-  trackingMetrics   ExerciseTrackingMetric[] @default([]) @map("tracking_metric")
+  trackingMetrics  ExerciseTrackingMetric[] @default([]) @map("tracking_metric")
   //A list of all workout exercises that use this exercise.
   workoutExercises WorkoutExercise[]
 
@@ -859,8 +896,15 @@ model Workout {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  exercises WorkoutExercise[]
+  exercises           WorkoutExercise[]
+  sourcePlanWorkoutId String?           @map("source_plan_workout_id") @db.Uuid
+  scheduledDate       DateTime?         @map("scheduled_date") @db.Date
 
+  sourcePlanWorkout PlanWorkout? @relation(fields: [sourcePlanWorkoutId], references: [id], onDelete: SetNull)
+
+  @@index([sourcePlanWorkoutId])
+  @@index([scheduledDate])
+  @@unique(  [sourcePlanWorkoutId, scheduledDate],  map: "one_active_workout_per_scheduled_occurrence",  where: raw("status IN ('IN_PROGRESS', 'COMPLETED')"))
   @@index([userId, startedAt])
   @@index([userId, status])
   @@map("workouts")
@@ -896,3 +940,227 @@ model WorkoutExercise {
   @@index([exerciseId])
   @@map("workout_exercises")
 }
+
+// ======================================================
+// PLAN TEMPLATE
+// ======================================================
+
+/// Internal reusable blueprint used as a reference during AI generation.
+/// This is NOT a user's actual personalized plan.
+model PlanTemplate {
+  id String @id @default(uuid()) @db.Uuid
+
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+
+  goalType        GoalType                @map("goal_type")
+  experienceLevel TrainingExperienceLevel @map("experience_level")
+
+  durationWeeks Int? @map("duration_weeks") @db.SmallInt
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  days  PlanTemplateDay[]
+  plans Plan[]
+
+  @@index([goalType, experienceLevel])
+  @@map("plan_templates")
+}
+
+// ======================================================
+// PLAN TEMPLATE DAY
+// ======================================================
+
+/// Generic training day inside a reusable template.
+///
+/// dayNumber is a training-day order, NOT a weekday.
+///
+/// Example:
+/// Day 1 — Upper Body
+/// Day 2 — Lower Body
+model PlanTemplateDay {
+  id String @id @default(uuid()) @db.Uuid
+
+  planTemplateId String @map("plan_template_id") @db.Uuid
+
+  dayNumber Int    @map("day_number") @db.SmallInt
+  name      String @db.VarChar(100)
+
+  /// High-level workout reference for the AI.
+  ///
+  /// Example:
+  /// {
+  ///   "focus": "UPPER_BODY",
+  ///   "targetDurationMinutes": 60,
+  ///   "movementPatterns": [
+  ///     "HORIZONTAL_PUSH",
+  ///     "HORIZONTAL_PULL",
+  ///     "VERTICAL_PUSH",
+  ///     "VERTICAL_PULL"
+  ///   ]
+  /// }
+  workoutBlueprint Json? @map("workout_blueprint") @db.JsonB
+
+  /// Optional nutrition structure reference.
+  ///
+  /// Example:
+  /// {
+  ///   "mealPattern": "HIGH_PROTEIN",
+  ///   "proteinDistribution": "EVEN"
+  /// }
+  nutritionBlueprint Json? @map("nutrition_blueprint") @db.JsonB
+
+  notes String? @db.Text
+
+  planTemplate PlanTemplate @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([planTemplateId, dayNumber])
+  @@index([planTemplateId])
+  @@map("plan_template_days")
+}
+
+// ======================================================
+// PERSONALIZED USER PLAN
+// ======================================================
+
+/// A personalized plan generated for one specific user.
+///
+/// The source template is only a reference used during generation.
+/// The saved plan is independent from the template afterward.
+// ======================================================
+// PLAN
+// ======================================================
+
+model Plan {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  goalId String @map("goal_id") @db.Uuid
+
+  sourceTemplateId String? @map("source_template_id") @db.Uuid
+
+  status PlanStatus @default(DRAFT)
+
+  nutritionPlanStyle NutritionPlanStyle @map("nutrition_plan_style")
+
+  title       String? @db.VarChar(160)
+  explanation String? @db.Text
+
+  calorieTarget           Int? @map("calorie_target")
+  proteinTargetGrams      Int? @map("protein_target_grams")
+  carbohydrateTargetGrams Int? @map("carbohydrate_target_grams")
+  fatTargetGrams          Int? @map("fat_target_grams")
+
+  startDate DateTime? @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+
+  // NEW
+  timezone String @db.VarChar(64)
+
+  activatedAt DateTime? @map("activated_at") @db.Timestamptz(6)
+  endedAt     DateTime? @map("ended_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Restrict)
+
+  sourceTemplate PlanTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+
+  days PlanDay[]
+
+  @@unique([userId], map: "one_active_plan_per_user", where: raw("status = 'ACTIVE'"))
+  @@index([userId])
+  @@index([goalId])
+  @@index([sourceTemplateId])
+  @@index([userId, status])
+  @@map("plans")
+}
+
+// ======================================================
+// PERSONALIZED PLAN DAY
+// ======================================================
+
+/// One weekday inside the user's personalized plan.
+model PlanDay {
+  id String @id @default(uuid()) @db.Uuid
+
+  planId String @map("plan_id") @db.Uuid
+
+  dayOfWeek DayOfWeek @map("day_of_week")
+
+  /// EXACT_MEALS:
+  /// normally one generated option.
+  ///
+  /// FLEXIBLE_MEALS:
+  /// multiple alternatives.
+  ///
+  /// MACRO_BASED / SIMPLE_GUIDANCE:
+  /// these may remain null.
+  ///
+  /// Example:
+  /// [
+  ///   {
+  ///     "recipeId": "uuid",
+  ///     "servings": 1.5,
+  ///     "note": "Primary option"
+  ///   }
+  /// ]
+  breakfastOptions Json? @map("breakfast_options") @db.JsonB
+  lunchOptions     Json? @map("lunch_options") @db.JsonB
+  dinnerOptions    Json? @map("dinner_options") @db.JsonB
+  snackOptions     Json? @map("snack_options") @db.JsonB
+
+  nutritionGuidance String? @map("nutrition_guidance") @db.Text
+
+  notes String? @db.Text
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  workouts PlanWorkout[]
+  meals    Meal[]
+
+  @@unique([planId, dayOfWeek])
+  @@index([planId])
+  @@map("plan_days")
+}
+
+// ======================================================
+// PERSONALIZED PLANNED WORKOUT
+// ======================================================
+
+/// A workout prescribed inside a personalized PlanDay.
+///
+/// This represents what the user SHOULD do.
+/// It is separate from the existing Workout model,
+/// which represents what the user ACTUALLY did.
+model PlanWorkout {
+  id String @id @default(uuid()) @db.Uuid
+
+  planDayId String @map("plan_day_id") @db.Uuid
+
+  slot WorkoutSlot @default(ANYTIME)
+
+  // NEW
+  orderIndex Int @map("order_index") @db.SmallInt
+
+  name String @db.VarChar(160)
+
+  estimatedDurationMinutes Int? @map("estimated_duration_minutes") @db.SmallInt
+
+  exercises Json @db.JsonB
+
+  notes String? @db.Text
+
+  planDay PlanDay @relation(fields: [planDayId], references: [id], onDelete: Cascade)
+
+  // NEW reverse relation
+  workouts Workout[]
+
+  @@unique([planDayId, orderIndex])
+  @@index([planDayId])
+  @@map("plan_workouts")
+}
+ 
