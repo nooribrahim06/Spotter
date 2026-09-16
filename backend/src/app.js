@@ -8,6 +8,7 @@ import { foodRoutes } from "./modules/foods/food.routes.js";
 import { goalRoutes } from "./modules/goals/goal.routes.js";
 import { mealRoutes } from "./modules/meals/meal.routes.js";
 import { onboardingRoutes } from "./modules/on-boarding/onboarding.routes.js";
+import { planRoutes } from "./modules/plans/plan.routes.js";
 import { profileRoutes } from "./modules/profiles/profile.routes.js";
 import { recipeRoutes } from "./modules/recipes/recipe.routes.js";
 import { progressRoutes } from "./modules/progress/progress.routes.js";
@@ -53,6 +54,8 @@ app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/profiles", profileRoutes);
 
 app.use("/api/goals", goalRoutes);
+
+app.use("/api/plans", planRoutes);
 
 app.use("/api/foods", foodRoutes);
 

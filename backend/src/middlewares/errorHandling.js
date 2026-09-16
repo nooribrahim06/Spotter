@@ -355,6 +355,29 @@ export class ProgressTimezoneRequiredError extends AppError {
   }
 }
 
+// =========== Plan Errors ===========
+export class PlanContextIncompleteError extends AppError {
+  constructor(details = null) {
+    super(
+      "Complete the required profile data and resolve readiness issues before generating a plan.",
+      422,
+      "PLAN_CONTEXT_INCOMPLETE",
+      details
+    );
+  }
+}
+
+export class PlanNotEligibleError extends AppError {
+  constructor(details = null) {
+    super(
+      "Plan generation is blocked by the current eligibility requirements.",
+      422,
+      "PLAN_NOT_ELIGIBLE",
+      details
+    );
+  }
+}
+
 export class DailySummaryTimezoneRequiredError extends AppError {
   constructor(
     message = "Set your timezone before viewing a daily summary."
