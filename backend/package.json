@@ -45,5 +45,9 @@
   },
   "overrides": {
     "deepmerge-ts": "8.0.2"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.9.1": true,
+    "prisma@7.9.1": true
   }
 }

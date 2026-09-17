@@ -462,7 +462,10 @@ async function main() {
 
         update: data,
       })
-    )
+    ),
+    {
+      timeout: 30000,
+    }
   );
 
   const createdCount =
