@@ -47,6 +47,8 @@ const envSchema = z
     CLOUD_NAME: z.string().trim().min(1),
     CLOUD_API_KEY: z.string().trim().min(1),
     CLOUD_API_SECRET: z.string().trim().min(1),
+    GROQ_API_KEY: z.string().trim().min(1),
+    GROQ_MODEL_NAME: z.string().trim().min(1),
   })
   .superRefine((env, context) => {
     if (

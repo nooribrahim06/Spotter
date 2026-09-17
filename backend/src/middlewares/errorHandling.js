@@ -387,3 +387,74 @@ export class DailySummaryTimezoneRequiredError extends AppError {
     ]);
   }
 }
+// =========== AI Provider Errors ===========
+
+export class AIProviderError extends AppError {
+  constructor(
+    message = "The AI provider request failed.",
+    statusCode = 502,
+    code = "AI_PROVIDER_ERROR"
+  ) {
+    super(message, statusCode, code);
+  }
+}
+
+export class AIProviderRateLimitError extends AIProviderError {
+  constructor(message = "The AI service is temporarily rate limited.") {
+    super(
+      message,
+      429,
+      "AI_PROVIDER_RATE_LIMITED"
+    );
+  }
+}
+
+export class AIProviderTimeoutError extends AIProviderError {
+  constructor(message = "The AI service did not respond in time.") {
+    super(
+      message,
+      504,
+      "AI_PROVIDER_TIMEOUT"
+    );
+  }
+}
+
+export class AIProviderUnavailableError extends AIProviderError {
+  constructor(message = "The AI service is temporarily unavailable.") {
+    super(
+      message,
+      502,
+      "AI_PROVIDER_UNAVAILABLE"
+    );
+  }
+}
+
+export class AIProviderInvalidResponseError extends AIProviderError {
+  constructor(message = "The AI service returned an unusable response.") {
+    super(
+      message,
+      502,
+      "AI_PROVIDER_INVALID_RESPONSE"
+    );
+  }
+}
+
+export class AIProviderRefusalError extends AIProviderError {
+  constructor(message = "The AI service refused to generate the requested content.") {
+    super(
+      message,
+      502,
+      "AI_PROVIDER_REFUSAL"
+    );
+  }
+}
+
+export class AIProviderTruncatedResponseError extends AIProviderError {
+  constructor(message = "The AI service response was incomplete.") {
+    super(
+      message,
+      502,
+      "AI_PROVIDER_TRUNCATED_RESPONSE"
+    );
+  }
+}
