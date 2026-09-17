@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PLAN_NUTRITION_TOLERANCE } from "../../config/plan.js";
 import {
   generatedPlanSchema,
   PLAN_WEEKDAYS,
@@ -28,7 +29,7 @@ import { PLAN_TOOL_LIMITS } from "./plan.tools.schema.js";
  * Keeping it out of system instructions helps establish the boundary;
  * prompts alone do not enforce permissions or guarantee safe output.
  */
-export const PLAN_PROMPT_VERSION = "2";
+export const PLAN_PROMPT_VERSION = "4";
 
 const sharedInstructions = `
 You help prepare a Spotter weekly training and nutrition plan.
@@ -144,16 +145,18 @@ Match each ID to its catalog type: exerciseId, recipeId, or foodId.
 Recipe ingredient food records are also food candidates when included in a
 successful recipe result. Never invent IDs, nutrients, ingredients, or equipment.
 An empty or failed result provides no candidates. Do not treat error text as data.
-Candidates are not proof of safety; REQUIRES_FINAL_PLAN_VALIDATION means the
-backend must still check them. Never claim medical or allergy clearance.
+restrictionValidation NOT_VERIFIED means the backend has not certified medical,
+allergy, or dietary compatibility. Respect the supplied restrictions when choosing
+items; do not treat eligibility to generate as proof of safety or claim clearance.
 
 SCHEDULE
 Include exactly seven days, each once, in this order: ${PLAN_WEEKDAYS.join(", ")}.
 This is a repeating week, not a separate entry for every date in the request.
 Use workouts: [] for rest days. Rest days can still contain nutrition content.
 Honor trainingDaysPerWeek using available days, preferring preferred days.
-Respect daily maxMinutes and preferredSessionMinutes; do not exceed the daily
-budget by splitting work into several sessions. Include realistic non-null
+Respect daily maxMinutes and preferredSessionMinutes. When maxMinutes is absent,
+use preferredSessionMinutes as the daily budget. Each session must also fit
+preferredSessionMinutes. Do not evade the daily budget by splitting sessions. Include realistic non-null
 estimatedDurationMinutes for workouts, including rest and transitions.
 Use slot ANYTIME when no time-of-day preference is supplied.
 Adapt template volume and exercise choices to actual time and restrictions.
@@ -172,6 +175,12 @@ unavailable apparatus, even if the search returned it.
 NUTRITION
 Use the backend's dailyCalories, proteinGrams, carbohydrateGrams, and fatGrams.
 Do not add estimated workout calories or recalculate targets.
+For concrete meals, daily calories and protein must stay within
+${PLAN_NUTRITION_TOLERANCE.caloriesPercent}% and ${PLAN_NUTRITION_TOLERANCE.proteinPercent}%
+of their respective targets; carbohydrates and fat within
+${PLAN_NUTRITION_TOLERANCE.carbohydratePercent}% and ${PLAN_NUTRITION_TOLERANCE.fatPercent}%.
+For flexible meals, EVERY combination of one option per scheduled slot must
+fit these ranges. Alternatives are not extra meals.
 FOOD nutrients = catalog per-100-gram values multiplied by quantityGrams / 100.
 RECIPE nutrients = catalog per-serving values multiplied by requested servings.
 Recipe ingredients describe the WHOLE recipe. Do not add their nutrients again

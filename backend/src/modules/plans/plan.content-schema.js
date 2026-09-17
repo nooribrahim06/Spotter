@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 /**
+ * SUMMARY: validates fields/types, IDs as UUIDs, limits, seven unique weekdays,
+ * rep ranges, exercise measurements, and duplicate exercises within a workout.
+ * It does not verify real catalog IDs, permissions, schedule, or nutrition;
+ * plan-generated.rules.js owns those checks. The generator runs this once.
+ *
  * START HERE: this file checks the shape of the plan returned by the AI.
  * It does not call the AI, calculate targets, or save anything to the database.
  *
@@ -38,7 +43,7 @@ export const PLAN_CONTENT_LIMITS = Object.freeze({
   optionLabelLength: 100,
   mealOptionsPerSlot: 5,
   itemsPerMealOption: 20,
-  workoutsPerDay: 3, 
+  workoutsPerDay: 3,
   exercisesPerWorkout: 20,
   smallIntMax: 32767, // Largest positive database SmallInt value.
 });

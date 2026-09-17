@@ -1,54 +1,30 @@
-// this file have the WHOLE generation logic resposibility 
-
-// the service already called 
-
-// const generatedPlan = await generatePlanWithAI({
-//     context: aiContext,
-//     userId,
-//     db,
-//   });
-
-// so the context is service reposibility 
-// the service expect a vaild plan returned 
-// so we here must do in order 
-// 1. send tools request to the provider 
-// 2. validate the tools response <the scgema already exists in the plan.tools.schema.js>
-// 3. build the tools response into a valid plan proposal
-//4. return the plan proposal to the service
-// 5. here we will validate the plan proposal and the service persist it as a DRAFT
-import { sendToolCallRequestToGroq, 
-    sendContentGenerationRequestToGroq
- } from "../../providers/ai/groq.provider.js";
-import { buildPlanSearchPrompt, 
-    buildPlanGenerationPrompt
-} from "./plan.prompt.js";
-import { createPlanTools } from "./plan.tools.js";
-import { generatedPlanSchema } from "./plan.content-schema.js";
-
+/**
+ * Same straight-line flow as the original generator:
+ * ask for searches -> execute them -> ask for plan -> parse -> validate.
+ *
+ * The service supplies a tool session already bound to the authenticated user.
+ * Tool argument validation belongs to that session, not this file.
+ * Returns { plan, toolResults } so the service can apply business rules using
+ * exactly the catalog records the model received. Does not save anything.
+ */
+import { Buffer } from "node:buffer";
+import { PLAN_GENERATION_LIMITS, CONCRETE_MEAL_PLAN_STYLES } from "../../config/plan.js";
 import {
-  AIProviderError,
-  AIProviderRateLimitError,
-  AIProviderTimeoutError,
-  AIProviderUnavailableError,
+  sendToolCallRequestToGroq,
+  sendContentGenerationRequestToGroq,
+} from "../../providers/ai/groq.provider.js";
+import { buildPlanSearchPrompt, buildPlanGenerationPrompt } from "./plan.prompt.js";
+import { generatedPlanSchema } from "./plan.content-schema.js";
+import {
   AIProviderInvalidResponseError,
-  AIProviderRefusalError,
-  AIProviderTruncatedResponseError,
+  PlanGenerationError,
 } from "../../middlewares/errorHandling.js";
 
-export async function generatePlanWithAI({
-  context,
-  source,
-  userId,
-  db,
-}) {
-  // 1. Prepare searches bound to this authenticated user.
-  const tools = createPlanTools({ userId, source, db });
-
-  // 2. Build the instructions.
-  
+export async function generatePlanWithAI({ context, tools }) {
+  // 1. The service already created tools for this user and checked readiness.
   const searchPrompt = buildPlanSearchPrompt({ context });
 
-  // 3. Ask Groq what to search for.
+  // 2. Ask Groq which searches it needs. This does not search the database.
   const toolCalls = await sendToolCallRequestToGroq(
     [
       { role: "system", content: searchPrompt.system },
@@ -57,25 +33,45 @@ export async function generatePlanWithAI({
     tools.definitions
   );
 
-  // 4. The provider already checks that exactly one call was returned.
+  // 3. Run the searches. The provider already guarantees one tool call;
+  // tools.execute() parses/validates its arguments and queries the database.
   const call = toolCalls[0];
-
-  // 5. THIS runs the actual database searches.
   const batch = await tools.execute(call.name, call.arguments);
-
   if (!batch.ok) {
-    throw new Error(batch.error.message);
+    throw new PlanGenerationError(
+      batch.error.message, batch.error.code, batch.error.details
+    );
   }
 
-  // 6. Prepare the next AI request with the actual search results.
+  // 4. Avoid a wasted second AI call when required categories are empty.
+  // This is not proof that candidates fit; the final rules check selections.
+  const hasExercises = batch.results.some((entry) =>
+    entry.name === "searchExercises" && entry.result.ok && entry.result.items.length > 0
+  );
+  const hasMeals = batch.results.some((entry) =>
+    (entry.name === "searchFoods" || entry.name === "searchRecipes") &&
+    entry.result.ok && entry.result.items.length > 0
+  );
+  const needsMeals = CONCRETE_MEAL_PLAN_STYLES.includes(
+    context.user.nutritionPlanStyle
+  );
+  if (!hasExercises || (needsMeals && !hasMeals)) {
+    throw new PlanGenerationError(
+      "The catalog searches did not provide the required candidates.",
+      "PLAN_CANDIDATES_UNAVAILABLE",
+      { missing: [
+        ...(!hasExercises ? ["exercises"] : []),
+        ...(needsMeals && !hasMeals ? ["foodsOrRecipes"] : []),
+      ] }
+    );
+  }
+
+  // 5. Send actual search results to Groq and ask for the plan.
   const generationPrompt = buildPlanGenerationPrompt({
     context,
     toolResults: batch.results,
   });
-
-  // Next: send generationPrompt to Groq and validate the returned plan.
-  const generatedContent =
-  await sendContentGenerationRequestToGroq(
+  const generatedContent = await sendContentGenerationRequestToGroq(
     [
       { role: "system", content: generationPrompt.system },
       { role: "user", content: generationPrompt.user },
@@ -83,24 +79,23 @@ export async function generatePlanWithAI({
     generationPrompt.responseSchema
   );
 
-let parsedPlan;
+  // 6. Bound the returned text before parsing it.
+  if (Buffer.byteLength(generatedContent, "utf8") > PLAN_GENERATION_LIMITS.contentBytes) {
+    throw new AIProviderInvalidResponseError("The generated plan response is too large.");
+  }
+  let parsedPlan;
+  try {
+    parsedPlan = JSON.parse(generatedContent);
+  } catch {
+    throw new AIProviderInvalidResponseError("The AI returned invalid JSON content.");
+  }
 
-try {
-  parsedPlan = JSON.parse(generatedContent);
-} catch {
-  throw new AIProviderInvalidResponseError(
-    "AI provider returned invalid JSON content."
-  );
-}
+  // 7. Keep your original Zod check. It runs once, here.
+  const result = generatedPlanSchema.safeParse(parsedPlan);
+  if (!result.success) {
+    throw new AIProviderInvalidResponseError("The AI returned invalid plan content.");
+  }
 
-const result = generatedPlanSchema.safeParse(parsedPlan);
-
-if (!result.success) {
-  throw new AIProviderInvalidResponseError(
-    "AI provider returned invalid plan content."
-  );
-}
-
-return result.data;
-
+  // 8. Return the plan AND its catalog evidence for the service's business checks.
+  return { plan: result.data, toolResults: batch.results };
 }

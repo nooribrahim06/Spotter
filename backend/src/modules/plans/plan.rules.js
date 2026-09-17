@@ -1,3 +1,10 @@
+import { EXERCISE_OPTIONS } from "../../config/exercise.js";
+import { PROFILE_OPTIONS } from "../../config/profile.js";
+import { CONCRETE_MEAL_PLAN_STYLES } from "../../config/plan.js";
+
+// Shared by GET /context and the tool session used by POST /generate.
+// Professional clearance is the only health eligibility block. Other health
+// and food restrictions remain planning inputs, not automatic disqualifiers.
 export function evaluatePlanReadiness(context) {
   const missingRequired = [];
   const missingOptional = [];
@@ -144,6 +151,26 @@ export function evaluatePlanReadiness(context) {
     if (!nutritionProfile.planStyle)
       missingRequired.push("NUTRITION_PLAN_STYLE");
 
+    if (nutritionProfile.planStyle &&
+        !PROFILE_OPTIONS.nutritionPlanStyles.includes(nutritionProfile.planStyle)) {
+      issues.push("UNSUPPORTED_NUTRITION_PLAN_STYLE");
+    }
+
+    // These are representation limits, not health eligibility decisions.
+    // Keep them here so context and generation report the same prerequisites.
+    if (CONCRETE_MEAL_PLAN_STYLES.includes(nutritionProfile.planStyle)) {
+      if (nutritionProfile.mealsPerDay == null) {
+        missingRequired.push("MEALS_PER_DAY");
+      } else if (nutritionProfile.mealsPerDay !== 3) {
+        issues.push("UNSUPPORTED_MAIN_MEAL_COUNT");
+      }
+      if (nutritionProfile.snacksPerDay == null) {
+        missingRequired.push("SNACKS_PER_DAY");
+      } else if (![0, 1].includes(nutritionProfile.snacksPerDay)) {
+        issues.push("UNSUPPORTED_SNACK_COUNT");
+      }
+    }
+
     if (nutritionProfile.foodPreferences === null)
       missingOptional.push("FOOD_PREFERENCES");
 
@@ -165,4 +192,15 @@ export function evaluatePlanReadiness(context) {
     missingOptional,
     issues,
   };
+}
+
+// One equipment policy, shared by search filtering and final selection checks.
+// BODY_WEIGHT is a catalog code, not proof that no apparatus is required.
+export function getAllowedPlanEquipment(trainingProfile) {
+  return [...new Set([
+    "BODY_WEIGHT",
+    ...(trainingProfile.availableEquipment ?? [])
+      .map((item) => item.code)
+      .filter((code) => EXERCISE_OPTIONS.equipment.includes(code)),
+  ])];
 }

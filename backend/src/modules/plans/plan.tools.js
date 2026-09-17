@@ -1,6 +1,5 @@
 import { Buffer } from "node:buffer";
 import { z } from "zod";
-import { EXERCISE_OPTIONS } from "../../config/exercise.js";
 import {
   InvalidAccessTokenError,
   PlanContextIncompleteError,
@@ -10,15 +9,12 @@ import { createPublicErrorDetails } from "../../middlewares/validatebody.js";
 import * as exerciseRepository from "../exercises/exercise.repository.js";
 import * as foodRepository from "../foods/food.repository.js";
 import * as recipeRepository from "../recipes/recipe.repository.js";
-import { evaluatePlanReadiness } from "./plan.rules.js";
+import { evaluatePlanReadiness, getAllowedPlanEquipment } from "./plan.rules.js";
 import {
   PLAN_TOOL_LIMITS,
   PLAN_CATALOG_TOOL_NAME,
   searchPlanCatalogToolSchema,
   getPlanToolDefinitions,
-  searchExercisesToolSchema,
-  searchRecipesToolSchema,
-  searchFoodsToolSchema,
 } from "./plan.tools.schema.js";
 
 function failure(code, message, details = null) {
@@ -75,21 +71,12 @@ export function createPlanTools({ userId, source, db }) {
   if (readiness.blocked) throw new PlanNotEligibleError(readiness);
   if (!readiness.ready) throw new PlanContextIncompleteError(readiness);
 
-  // Capture server-owned equipment now. AI arguments can only narrow it.
-  // Bodyweight requires no purchased equipment. Unknown profile codes do not
-  // imply access to every machine in a gym.
-  const allowedEquipment = [...new Set([
-    "BODY_WEIGHT",
-    ...(source.trainingProfile.availableEquipment ?? [])
-      .map((item) => item.code)
-      .filter((code) => EXERCISE_OPTIONS.equipment.includes(code)),
-  ])];
+  // Capture the shared equipment policy once for database search constraints.
+  const allowedEquipment = getAllowedPlanEquipment(source.trainingProfile);
 
-  let calls = 0;
   let batchAttempted = false; // One AI tool round per generation, including failures.
   const handlers = new Map([
     ["searchExercises", {
-      schema: searchExercisesToolSchema,
       async run(query) {
         const { exercises, totalItems } = await exerciseRepository.findExercises(
           query, db, { allowedEquipment }
@@ -110,24 +97,22 @@ export function createPlanTools({ userId, source, db }) {
           })),
           pagination: pagination(query, totalItems),
           appliedConstraints: { allowedEquipment },
-          restrictionValidation: "REQUIRES_FINAL_PLAN_VALIDATION",
+          restrictionValidation: "NOT_VERIFIED",
         };
       },
     }],
     ["searchFoods", {
-      schema: searchFoodsToolSchema,
       async run(query) {
         const { foods, totalItems } = await foodRepository.searchFoods(userId, query, db);
         return {
           items: foods.map(foodCandidate),
           nutritionBasis: "PER_100_GRAMS",
           pagination: pagination(query, totalItems),
-          restrictionValidation: "REQUIRES_FINAL_PLAN_VALIDATION",
+          restrictionValidation: "NOT_VERIFIED",
         };
       },
     }],
     ["searchRecipes", {
-      schema: searchRecipesToolSchema,
       async run(query) {
         const { recipes, totalItems } = await recipeRepository.searchRecipes(userId, query, db);
         // Fetch details in one batch, rechecking visibility for recipes AND
@@ -172,58 +157,23 @@ export function createPlanTools({ userId, source, db }) {
           pagination: pagination(query, totalItems),
           // Pagination tracks searched candidates, before detail exclusions.
           omittedCandidates: recipes.length - items.length,
-          restrictionValidation: "REQUIRES_FINAL_PLAN_VALIDATION",
+          restrictionValidation: "NOT_VERIFIED",
         };
       },
     }],
   ]);
 
-  // Existing single-search execution stays internal to this session.
-  // The batch wrapper below is the only entry point exposed to the AI.
-  async function executeSearch(name, argumentsValue) {
-    if (calls >= PLAN_TOOL_LIMITS.callsPerGeneration) {
-      return failure("PLAN_TOOL_CALL_LIMIT", "The catalog search budget is exhausted.");
-    }
-    // Count invalid calls as well; increment before any await.
-    calls += 1;
-    const handler = handlers.get(name);
-    if (!handler) {
-      return failure("PLAN_TOOL_UNKNOWN", "Only the advertised catalog search tools are allowed.");
-    }
-
-    let args;
+  // Private helper: execute only entries already parsed by the batch schema.
+  // Do not parse JSON or repeat argument validation here.
+  async function executeSearch(search) {
     try {
-      // Accept either parsed arguments or the JSON string returned by a
-      // provider. Parsing never evaluates JavaScript or SQL.
-      const raw = typeof argumentsValue === "string"
-        ? argumentsValue : JSON.stringify(argumentsValue);
-      if (typeof raw !== "string" ||
-          Buffer.byteLength(raw, "utf8") > PLAN_TOOL_LIMITS.argumentBytes) {
-        return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Tool arguments are missing or too large.");
-      }
-      args = JSON.parse(raw);
-    } catch {
-      return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Tool arguments must be valid JSON.");
-    }
-
-    const parsed = handler.schema.safeParse(args);
-    if (!parsed.success) {
-      return failure(
-        "PLAN_TOOL_INVALID_ARGUMENTS",
-        "Tool arguments failed validation.",
-        createPublicErrorDetails(parsed.error)
-      );
-    }
-
-    try {
-      const result = await handler.run(parsed.data);
+      const result = { ok: true, ...await handlers.get(search.name).run(search.arguments) };
       if (Buffer.byteLength(JSON.stringify(result), "utf8") > PLAN_TOOL_LIMITS.responseBytes) {
-        return failure("PLAN_TOOL_RESULT_TOO_LARGE", "Retry with a smaller result limit.");
+        return failure("PLAN_TOOL_RESULT_TOO_LARGE", "The catalog result exceeds the size limit.");
       }
-      return { ok: true, ...result };
+      return result;
     } catch {
-      // Do not return database errors, SQL, stack traces, or credentials.
-      return failure("PLAN_TOOL_SEARCH_FAILED", "Catalog search failed. Try again later.");
+      return failure("PLAN_TOOL_SEARCH_FAILED", "Catalog search failed.");
     }
   }
 
@@ -276,7 +226,7 @@ export function createPlanTools({ userId, source, db }) {
       for (const [index, search] of parsed.data.searches.entries()) {
         // Sequential execution avoids launching up to 24 database searches
         // at once. One failure remains a result, so other searches can succeed.
-        const result = await executeSearch(search.name, search.arguments);
+        const result = await executeSearch(search);
         output.results.push({ index, name: search.name, result });
 
         // Bound the entire payload, not only each individual search result.

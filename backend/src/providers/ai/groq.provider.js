@@ -48,7 +48,7 @@ function convertMessagesToGroqFormat(messages) {
   return messages.map((message) => {
     if (
       message?.role !== "system" &&
-      message.role !== "user"
+      message?.role !== "user"
     ) {
       throw new TypeError(
         `Unsupported message role: ${message?.role}`

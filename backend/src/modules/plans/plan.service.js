@@ -3,11 +3,12 @@ import { evaluatePlanReadiness } from "./plan.rules.js";
 import { calculateFitnessTargets } from "../profiles/profile.targets.js";
 import {
   InvalidAccessTokenError,
-  PlanContextIncompleteError,
-  PlanNotEligibleError,
 } from "../../middlewares/errorHandling.js";
 import { findCompatibleTemplate } from "./planTemplate.repository.js";
 import { buildPlanGenerationContext } from "./plan.context.js";
+import { createPlanTools } from "./plan.tools.js";
+import { generatePlanWithAI } from "./plan.generation.js";
+import { prepareGeneratedPlanValidation, validateGeneratedPlanForContext } from "./plan-generated.rules.js";
 export async function getPlanContext(userId, db) {
   const source = await planRepository.getPlanGenerationSourceData(userId, db);
 
@@ -39,20 +40,9 @@ export async function generatePlan(userId, input, db) {
   const source =
     await planRepository.getPlanGenerationSourceData(userId, db);
 
-  if (!source.user) {
-    throw new InvalidAccessTokenError();
-  }
-
-  // 2. Check readiness
-  const readiness = evaluatePlanReadiness(source);
-
-  // Preserve actionable readiness details without exposing private profiles.
-  if (readiness.blocked) {
-    throw new PlanNotEligibleError(readiness);
-  }
-  if (!readiness.ready) {
-    throw new PlanContextIncompleteError(readiness);
-  }
+  // Authenticate/bind the tool session and check readiness ONCE.
+  // getPlanContext() is a separate HTTP request and evaluates readiness itself.
+  const tools = createPlanTools({ userId, source, db });
 
   // 3. Calculate backend-owned targets
   const targets = calculateFitnessTargets({
@@ -60,6 +50,10 @@ export async function generatePlan(userId, input, db) {
     goal: source.goal,
     progressEntry: source.latestProgress,
   });
+
+  // Readiness was checked by createPlanTools using the same rules as /context.
+  // Prepare final-validation settings; this adds no new profile eligibility gate.
+  const validationContext = prepareGeneratedPlanValidation({ source, targets });
 
   // 4. Select generation reference
   const template = await findCompatibleTemplate({
@@ -76,18 +70,21 @@ export async function generatePlan(userId, input, db) {
     input,
   });
 
-  // 6. AI generates plan and uses catalog tools itself
-  // not currently implemented 
-  const generatedPlan = await generatePlanWithAI({
+  // 6. Generator runs the two AI requests and checks the output shape once.
+  const { plan, toolResults } = await generatePlanWithAI({
     context: aiContext,
-    userId,
-    db,
+    tools,
   });
 
-  // later:
-  // validate generatedPlan
-  // recheck context
-  // persist DRAFT
+  // 7. Check the selected catalog IDs and user-specific business rules once.
+  const validated = validateGeneratedPlanForContext({
+    generatedPlan: plan,
+    source,
+    toolResults,
+    validationContext,
+  });
 
-  return generatedPlan;
+  // This endpoint currently returns a validated proposal. Draft persistence,
+  // a fresh context/access check, and the transaction are the next stage.
+  return validated.plan;
 }

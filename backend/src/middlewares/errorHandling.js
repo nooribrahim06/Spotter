@@ -12,10 +12,10 @@ export class AppError extends Error {
     }
 }
 
-// types or errors i have uptill now 
-// =============== Signup Endpoint =============== 
-// 1.1. the client sent invalid schema 
-// 1.2. 429 
+// types or errors i have uptill now
+// =============== Signup Endpoint ===============
+// 1.1. the client sent invalid schema
+// 1.2. 429
 // 1.3. nodemailer failed to send email
 // 1.4. the repo failed to create the user <database error>
 export class invalidSchemaError extends AppError {
@@ -49,7 +49,7 @@ export class DuplicateUserError extends AppError {
 }
 
 //=========== Verify Email Endpoint ===========
-// 2.1. the client sent invalid schema 
+// 2.1. the client sent invalid schema
 // 2.2. the repo failed to find the user with that token or the token is expired
 export class invalidTokenError extends AppError {
     constructor(message) {
@@ -57,7 +57,7 @@ export class invalidTokenError extends AppError {
     }
 }
 //=========== Login Endpoint ===========
-// login endpoint 
+// login endpoint
 // 1. the client sent invalid schema
 // 2. the repo failed to find the user with that email or the password is incorrect
 
@@ -456,5 +456,18 @@ export class AIProviderTruncatedResponseError extends AIProviderError {
       502,
       "AI_PROVIDER_TRUNCATED_RESPONSE"
     );
+  }
+}
+
+// Generation-stage failures use application codes instead of plain Error.
+export class PlanGenerationError extends AppError {
+  constructor(message, code = "PLAN_GENERATION_FAILED", details = null, statusCode = 502) {
+    super(message, statusCode, code, details);
+  }
+}
+
+export class PlanContentInvalidError extends AppError {
+  constructor(details) {
+    super("The generated plan failed the user-specific rules.", 422, "PLAN_CONTENT_INVALID", details);
   }
 }
