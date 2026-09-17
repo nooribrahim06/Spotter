@@ -6,6 +6,7 @@
   "scripts": {
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
+    "db:sql": "node prisma/run-sql.js",
     "db:studio": "prisma studio",
     "dev": "nodemon src/index.js",
     "test": "node --test",

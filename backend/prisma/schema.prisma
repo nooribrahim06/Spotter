@@ -287,6 +287,8 @@ model User {
   meals               Meal[]
   workouts            Workout[]
   plans               Plan[]
+  aiConversations     AiConversation[]
+  dailySummaries      DailySummary[]
 
   @@map("users")
 }
@@ -1163,4 +1165,77 @@ model PlanWorkout {
   @@index([planDayId])
   @@map("plan_workouts")
 }
- 
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+model DailySummary {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  summaryDate       DateTime @map("summary_date") @db.Date
+  targetCalories    Int      @map("target_calories")
+  consumedCalories  Decimal  @default(0) @map("consumed_calories") @db.Decimal(7, 2)
+  consumedProtein   Decimal  @default(0) @map("consumed_protein") @db.Decimal(5, 2)
+  consumedCarbs     Decimal  @default(0) @map("consumed_carbs") @db.Decimal(5, 2)
+  consumedFat       Decimal  @default(0) @map("consumed_fat") @db.Decimal(5, 2)
+  burnedCalories    Int      @default(0) @map("burned_calories")
+  remainingCalories Decimal  @default(0) @map("remaining_calories") @db.Decimal(7, 2)
+  mealCount         Int      @default(0) @map("meal_count")
+  workoutCount      Int      @default(0) @map("workout_count")
+  workoutCompleted  Boolean  @default(false) @map("workout_completed")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, summaryDate])
+  /// BRIN index on summaryDate will be added via raw SQL
+  @@map("daily_summaries")
+}
+
+model AiConversation {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  title     String?     @db.VarChar(255)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @map("conversation_id") @db.Uuid
+  role           MessageRole
+  content        String         @db.Text
+  context        Json?          @db.JsonB
+  sentAt         DateTime       @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
+}
+
+model AuditLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String?     @map("user_id") @db.Uuid
+  tableName   String      @map("table_name") @db.VarChar(100)
+  recordId    String      @map("record_id") @db.Uuid
+  action      AuditAction
+  oldValues   Json?       @map("old_values") @db.JsonB
+  newValues   Json?       @map("new_values") @db.JsonB
+  performedAt DateTime    @default(now()) @map("performed_at") @db.Timestamptz(6)
+
+  @@map("audit_logs")
+}
