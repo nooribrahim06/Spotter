@@ -10,8 +10,8 @@ import { PLAN_TOOL_LIMITS } from "./plan.tools.schema.js";
  * It does not call a provider, execute searches, validate a plan, or save it.
  *
  * We use TWO requests:
- *   1. Search: AI requests a batch of catalog searches.
- *      The backend executes those calls through createPlanTools().
+ *   1. Search: AI makes ONE searchPlanCatalog call containing all searches.
+ *      The backend executes the batch through createPlanTools().
  *   2. Generate: AI receives the search results and writes the weekly plan.
  *      The backend disables tools for this request.
  *
@@ -28,7 +28,7 @@ import { PLAN_TOOL_LIMITS } from "./plan.tools.schema.js";
  * Keeping it out of system instructions helps establish the boundary;
  * prompts alone do not enforce permissions or guarantee safe output.
  */
-export const PLAN_PROMPT_VERSION = "1";
+export const PLAN_PROMPT_VERSION = "2";
 
 const sharedInstructions = `
 You help prepare a Spotter weekly training and nutrition plan.
@@ -73,19 +73,22 @@ export function buildPlanSearchPrompt({ context }) {
     system: `${sharedInstructions}
 
 SEARCH STAGE
-Request all needed searches in ONE batch of tool calls in this response.
-Use only searchExercises, searchRecipes, and searchFoods.
+Call searchPlanCatalog exactly ONCE in this response.
+Put every required search into its searches array.
+Each entry has name and arguments. Allowed search names inside that array are
+searchExercises, searchRecipes, and searchFoods; they are not separate AI tools.
+Do not put searchPlanCatalog inside its own searches array.
 Do not write the plan, simulate tool results, or invent catalog IDs.
 You will not receive results until this batch is complete; do not plan searches
 that depend on another search result from this same batch.
 
-Use at most ${PLAN_TOOL_LIMITS.callsPerGeneration} tool calls.
+Include 1 to ${PLAN_TOOL_LIMITS.callsPerGeneration} searches inside this ONE tool call.
 Each search returns at most ${PLAN_TOOL_LIMITS.resultsPerSearch} candidates.
 Choose a small, useful mix of searches covering the whole week's needs.
 Do not issue a separate search for every meal or every day; candidates can be
-reused across days. Avoid duplicate calls. Start with page 1.
+reused across days. Avoid duplicate searches. Start with page 1.
 
-Follow each tool's argument schema exactly. Include every required key.
+Follow each search entry's argument schema exactly. Include every required key.
 Use null for unused filters and numbers for page and limit.
 Search is a catalog-name text search, not a semantic nutrition search.
 Do not use phrases such as "healthy high-protein breakfast" as if the database
@@ -111,8 +114,11 @@ meal choices are unnecessary. Do not spend searches on unused candidates.
 /**
  * REQUEST 2: turn actual backend search results into a plan.
  *
- * toolResults is an array assembled by the backend, not copied from AI text:
- *   [{ name: "searchFoods", result: await tools.execute(name, args) }, ...]
+ * toolResults is the results array from a successful backend batch:
+ *   const batch = await tools.execute(call.name, call.arguments);
+ *   // Stop generation if !batch.ok; do not replace a failed batch with [].
+ *   buildPlanGenerationPrompt({ context, toolResults: batch.results });
+ * Each entry is { index, name, result }; inspect result.ok for each search.
  *
  * The adapter must disable tools, attach responseSchema, handle provider
  * refusals/errors/truncation, then parse and validate the response.

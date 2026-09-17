@@ -13,6 +13,8 @@ import * as recipeRepository from "../recipes/recipe.repository.js";
 import { evaluatePlanReadiness } from "./plan.rules.js";
 import {
   PLAN_TOOL_LIMITS,
+  PLAN_CATALOG_TOOL_NAME,
+  searchPlanCatalogToolSchema,
   getPlanToolDefinitions,
   searchExercisesToolSchema,
   searchRecipesToolSchema,
@@ -56,7 +58,9 @@ function foodCandidate(food) {
  *   const tools = createPlanTools({ userId, source, db });
  *   // Send tools.definitions to the model through the provider adapter.
  *   const output = await tools.execute(toolCall.name, toolCall.arguments);
- *   // Return output to the model, correlated with that provider's call ID.
+ *   // Stop on !output.ok. Otherwise pass output.results to
+ *   // buildPlanGenerationPrompt({ context, toolResults: output.results }).
+ *   // Request 2 is a fresh generation request with tools disabled.
  *
  * The tools only retrieve candidates. The generation service must validate
  * the final selections, nutrition, schedule, and restrictions before saving.
@@ -82,6 +86,7 @@ export function createPlanTools({ userId, source, db }) {
   ])];
 
   let calls = 0;
+  let batchAttempted = false; // One AI tool round per generation, including failures.
   const handlers = new Map([
     ["searchExercises", {
       schema: searchExercisesToolSchema,
@@ -173,55 +178,119 @@ export function createPlanTools({ userId, source, db }) {
     }],
   ]);
 
+  // Existing single-search execution stays internal to this session.
+  // The batch wrapper below is the only entry point exposed to the AI.
+  async function executeSearch(name, argumentsValue) {
+    if (calls >= PLAN_TOOL_LIMITS.callsPerGeneration) {
+      return failure("PLAN_TOOL_CALL_LIMIT", "The catalog search budget is exhausted.");
+    }
+    // Count invalid calls as well; increment before any await.
+    calls += 1;
+    const handler = handlers.get(name);
+    if (!handler) {
+      return failure("PLAN_TOOL_UNKNOWN", "Only the advertised catalog search tools are allowed.");
+    }
+
+    let args;
+    try {
+      // Accept either parsed arguments or the JSON string returned by a
+      // provider. Parsing never evaluates JavaScript or SQL.
+      const raw = typeof argumentsValue === "string"
+        ? argumentsValue : JSON.stringify(argumentsValue);
+      if (typeof raw !== "string" ||
+          Buffer.byteLength(raw, "utf8") > PLAN_TOOL_LIMITS.argumentBytes) {
+        return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Tool arguments are missing or too large.");
+      }
+      args = JSON.parse(raw);
+    } catch {
+      return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Tool arguments must be valid JSON.");
+    }
+
+    const parsed = handler.schema.safeParse(args);
+    if (!parsed.success) {
+      return failure(
+        "PLAN_TOOL_INVALID_ARGUMENTS",
+        "Tool arguments failed validation.",
+        createPublicErrorDetails(parsed.error)
+      );
+    }
+
+    try {
+      const result = await handler.run(parsed.data);
+      if (Buffer.byteLength(JSON.stringify(result), "utf8") > PLAN_TOOL_LIMITS.responseBytes) {
+        return failure("PLAN_TOOL_RESULT_TOO_LARGE", "Retry with a smaller result limit.");
+      }
+      return { ok: true, ...result };
+    } catch {
+      // Do not return database errors, SQL, stack traces, or credentials.
+      return failure("PLAN_TOOL_SEARCH_FAILED", "Catalog search failed. Try again later.");
+    }
+  }
+
   return {
     definitions: getPlanToolDefinitions(),
-    // Counts are session-local. The future HTTP endpoint also needs a
-    // persistent/per-user rate limit and the AI loop needs an overall timeout.
+
+    // The model calls searchPlanCatalog ONCE. The backend fans that request
+    // out into database searches; this makes no additional AI requests.
     async execute(name, argumentsValue) {
-      if (calls >= PLAN_TOOL_LIMITS.callsPerGeneration) {
-        return failure("PLAN_TOOL_CALL_LIMIT", "The catalog search budget is exhausted.");
+      if (batchAttempted) {
+        return failure("PLAN_TOOL_CALL_LIMIT", "Only one catalog search batch is allowed per generation.");
       }
-      // Count invalid calls as well; increment before any await.
-      calls += 1;
-      const handler = handlers.get(name);
-      if (!handler) {
-        return failure("PLAN_TOOL_UNKNOWN", "Only the advertised catalog search tools are allowed.");
+      // Reserve the round before any await, including for invalid attempts.
+      batchAttempted = true;
+
+      if (name !== PLAN_CATALOG_TOOL_NAME) {
+        return failure("PLAN_TOOL_UNKNOWN", "Only searchPlanCatalog is available to the AI.");
       }
 
       let args;
       try {
-        // Accept either parsed arguments or the JSON string returned by a
-        // provider. Parsing never evaluates JavaScript or SQL.
         const raw = typeof argumentsValue === "string"
           ? argumentsValue : JSON.stringify(argumentsValue);
         if (typeof raw !== "string" ||
-            Buffer.byteLength(raw, "utf8") > PLAN_TOOL_LIMITS.argumentBytes) {
-          return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Tool arguments are missing or too large.");
+            Buffer.byteLength(raw, "utf8") > PLAN_TOOL_LIMITS.batchArgumentBytes) {
+          return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Batch arguments are missing or too large.");
         }
         args = JSON.parse(raw);
       } catch {
-        return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Tool arguments must be valid JSON.");
+        return failure("PLAN_TOOL_INVALID_ARGUMENTS", "Batch arguments must be valid JSON.");
       }
 
-      const parsed = handler.schema.safeParse(args);
+      // Validate EVERY search before executing the first database query.
+      // An invalid name, filter, nested batch, or >24 searches rejects the batch.
+      const parsed = searchPlanCatalogToolSchema.safeParse(args);
       if (!parsed.success) {
         return failure(
           "PLAN_TOOL_INVALID_ARGUMENTS",
-          "Tool arguments failed validation.",
+          "The catalog search batch failed validation.",
           createPublicErrorDetails(parsed.error)
         );
       }
-
-      try {
-        const result = await handler.run(parsed.data);
-        if (Buffer.byteLength(JSON.stringify(result), "utf8") > PLAN_TOOL_LIMITS.responseBytes) {
-          return failure("PLAN_TOOL_RESULT_TOO_LARGE", "Retry with a smaller result limit.");
-        }
-        return { ok: true, ...result };
-      } catch {
-        // Do not return database errors, SQL, stack traces, or credentials.
-        return failure("PLAN_TOOL_SEARCH_FAILED", "Catalog search failed. Try again later.");
+      if (parsed.data.searches.some((search) =>
+        Buffer.byteLength(JSON.stringify(search.arguments), "utf8") > PLAN_TOOL_LIMITS.argumentBytes
+      )) {
+        return failure("PLAN_TOOL_INVALID_ARGUMENTS", "A search exceeds the argument size limit.");
       }
+
+      const output = { ok: true, results: [] };
+      for (const [index, search] of parsed.data.searches.entries()) {
+        // Sequential execution avoids launching up to 24 database searches
+        // at once. One failure remains a result, so other searches can succeed.
+        const result = await executeSearch(search.name, search.arguments);
+        output.results.push({ index, name: search.name, result });
+
+        // Bound the entire payload, not only each individual search result.
+        // Never present a silently truncated batch as a complete result.
+        if (Buffer.byteLength(JSON.stringify(output), "utf8") > PLAN_TOOL_LIMITS.batchResponseBytes) {
+          return failure(
+            "PLAN_TOOL_RESULT_TOO_LARGE",
+            "The combined catalog results exceed the generation size limit."
+          );
+        }
+      }
+      // ok means the batch completed, not that every individual search worked.
+      // Consumers must inspect each entry's result.ok before using its items.
+      return output;
     },
   };
 }

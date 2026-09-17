@@ -14,6 +14,7 @@
 // - apply Spotter business rules
 // - save plans
 
+import { APIConnectionTimeoutError, APIConnectionError } from "groq-sdk";
 import groq from "../../lib/groq.js";
 import { env } from "../../config/env.js";
 
@@ -36,6 +37,8 @@ const REQUEST_TIMEOUT_MS = 30_000;
 
 /**
  * Convert Spotter messages into Groq chat messages.
+ * Both stages use fresh system/user messages. The generation prompt embeds
+ * backend search results as JSON, so assistant/tool history is not needed.
  */
 function convertMessagesToGroqFormat(messages) {
   if (!Array.isArray(messages)) {
@@ -44,11 +47,11 @@ function convertMessagesToGroqFormat(messages) {
 
   return messages.map((message) => {
     if (
-      message.role !== "system" &&
+      message?.role !== "system" &&
       message.role !== "user"
     ) {
       throw new TypeError(
-        `Unsupported message role: ${message.role}`
+        `Unsupported message role: ${message?.role}`
       );
     }
 
@@ -173,7 +176,7 @@ function translateGroqError(error) {
   if (
     status === 408 ||
     status === 504 ||
-    error?.name === "APIConnectionTimeoutError" ||
+    error instanceof APIConnectionTimeoutError ||
     error?.name === "AbortError" ||
     error?.code === "ETIMEDOUT"
   ) {
@@ -188,7 +191,7 @@ function translateGroqError(error) {
    */
   if (
     (status !== null && status >= 500) ||
-    error?.name === "APIConnectionError" ||
+    error instanceof APIConnectionError ||
     error?.code === "ECONNRESET" ||
     error?.code === "ECONNREFUSED"
   ) {
@@ -214,21 +217,13 @@ function translateGroqError(error) {
 }
 
 
-/**
- * If an error is already one of our provider AppErrors,
- * preserve it instead of translating it again.
- */
-function isAIProviderError(error) {
-  return error instanceof AIProviderError;
-}
-
-
 /* =========================================================
    REQUEST 1 — TOOL REQUEST
 ========================================================= */
 
 /**
- * Ask GPT-OSS which catalog search the backend should perform.
+ * Ask GPT-OSS for one tool call. For plan generation, the advertised tool
+ * is a batch containing all catalog searches; the provider does not run them.
  *
  * Tools:
  * YES
@@ -294,7 +289,7 @@ export async function sendToolCallRequestToGroq(
      not network/provider transport problems.
   ------------------------------------------------------- */
 
-  const choice = response.choices?.[0];
+  const choice = response?.choices?.[0];
 
   if (!choice) {
     throw new AIProviderInvalidResponseError(
@@ -317,12 +312,18 @@ export async function sendToolCallRequestToGroq(
   }
 
 
-  const toolCalls =
-    choice.message?.tool_calls ?? [];
+  const toolCalls = choice.message?.tool_calls;
 
-  if (toolCalls.length === 0) {
+  // The selected model need only produce ONE function call. That call carries
+  // the whole batch. Never execute an unexpected second top-level tool call.
+  if (
+    choice.finish_reason !== "tool_calls" ||
+    choice.message?.role !== "assistant" ||
+    !Array.isArray(toolCalls) ||
+    toolCalls.length !== 1
+  ) {
     throw new AIProviderInvalidResponseError(
-      "The AI service returned no catalog search request."
+      "The AI service must return exactly one completed tool call."
     );
   }
 
@@ -333,8 +334,11 @@ export async function sendToolCallRequestToGroq(
      * object and function name.
      */
     if (
-      !toolCall?.function ||
-      typeof toolCall.function.name !== "string"
+      toolCall?.type !== "function" ||
+      typeof toolCall.id !== "string" ||
+      toolCall.id.trim() === "" ||
+      typeof toolCall.function?.name !== "string" ||
+      !groqTools.some((tool) => tool.function.name === toolCall.function.name)
     ) {
       throw new AIProviderInvalidResponseError(
         "The AI service returned an invalid tool call."
@@ -346,28 +350,17 @@ export async function sendToolCallRequestToGroq(
       typeof toolCall.function.arguments !== "string"
     ) {
       throw new AIProviderInvalidResponseError(
-        `The AI service returned invalid arguments for tool "${toolCall.function.name}".`
+        "The AI service returned invalid tool arguments."
       );
     }
 
 
-    let args;
-
-    try {
-      args = JSON.parse(
-        toolCall.function.arguments
-      );
-    } catch {
-      throw new AIProviderInvalidResponseError(
-        `The AI service returned malformed arguments for tool "${toolCall.function.name}".`
-      );
-    }
-
-
+    // Preserve the raw JSON. The tool executor checks its byte limit BEFORE
+    // parsing and validates the entire batch against the search schemas.
     return {
       id: toolCall.id,
       name: toolCall.function.name,
-      arguments: args,
+      arguments: toolCall.function.arguments,
     };
   });
 }
@@ -432,7 +425,7 @@ export async function sendContentGenerationRequestToGroq(
      Now validate the basic shape of its response.
   ------------------------------------------------------- */
 
-  const choice = response.choices?.[0];
+  const choice = response?.choices?.[0];
 
   if (!choice) {
     throw new AIProviderInvalidResponseError(
@@ -454,6 +447,18 @@ export async function sendContentGenerationRequestToGroq(
     );
   }
 
+
+  if (
+    choice.finish_reason !== "stop" ||
+    choice.message?.role !== "assistant" ||
+    (choice.message.tool_calls != null &&
+      (!Array.isArray(choice.message.tool_calls) ||
+        choice.message.tool_calls.length > 0))
+  ) {
+    throw new AIProviderInvalidResponseError(
+      "The AI service did not return a completed content-only response."
+    );
+  }
 
   const content = choice.message?.content;
 
