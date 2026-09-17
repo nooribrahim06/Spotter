@@ -66,7 +66,8 @@ export async function findExercises(
     page,
     limit,
   },
-  db = prisma
+  db = prisma,
+  { allowedEquipment } = {}
 ) {
   const where = buildExerciseWhere({
     search,
@@ -77,6 +78,12 @@ export async function findExercises(
     mechanic,
     equipment,
   });
+
+  // Server-owned constraints intersect the model's query filters.
+  // Existing public catalog callers do not supply this internal option.
+  if (allowedEquipment) {
+    where.AND = [{ equipment: { in: allowedEquipment } }];
+  }
 
   try {
     const [exercises, totalItems] = await Promise.all([

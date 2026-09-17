@@ -310,3 +310,55 @@ export async function archiveOwnedRecipe(
     );
   }
 }
+
+// Internal plan search: hydrate a bounded page of recipe candidates.
+// Recheck BOTH recipe visibility and every ingredient food before returning
+// ingredient names/nutrition. Never return a partial list as the whole recipe.
+// Seeded recipes can have stored nutrition without any ingredient links.
+export async function findPlanRecipeDetails(userId, recipeIds, db = prisma) {
+  try {
+    return await db.recipe.findMany({
+      where: {
+        id: { in: recipeIds },
+        ...visibleRecipeWhere(userId),
+        ingredients: {
+          // With no rows, every passes. Existing linked foods must still be
+          // active and accessible; no ingredient details are silently removed.
+          every: {
+            food: {
+              is: {
+                isActive: true,
+                OR: [{ createdByUserId: null }, { createdByUserId: userId }],
+              },
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        nameEn: true,
+        nameAr: true,
+        cuisine: true,
+        countryCode: true,
+        servings: true,
+        totalYieldGrams: true,
+        caloriesPerServing: true,
+        proteinGramsPerServing: true,
+        carbohydrateGramsPerServing: true,
+        fatGramsPerServing: true,
+        ingredients: {
+          select: {
+            quantityGrams: true,
+            food: { select: ingredientFoodSelect },
+          },
+          orderBy: [{ orderIndex: "asc" }, { id: "asc" }],
+          // One extra row detects oversized recipes without truncating silently.
+          take: 101,
+        },
+      },
+      take: 10,
+    });
+  } catch {
+    throw new databaseError("Database error occurred while loading plan recipe candidates.");
+  }
+}
