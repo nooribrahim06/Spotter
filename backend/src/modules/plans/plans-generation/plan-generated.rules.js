@@ -15,10 +15,10 @@
  * safety from names. Guidance text and unrecorded apparatus cannot be verified
  * by these catalog fields; persistence/activation needs its own current checks.
  */
-import { PLAN_NUTRITION_TOLERANCE, CONCRETE_MEAL_PLAN_STYLES } from "../../config/plan.js";
-import { PlanContentInvalidError } from "../../middlewares/errorHandling.js";
+import { PLAN_NUTRITION_TOLERANCE, CONCRETE_MEAL_PLAN_STYLES } from "../../../config/plan.js";
+import { PlanContentInvalidError } from "../../../middlewares/errorHandling.js";
 import { PLAN_WEEKDAYS } from "./plan.content-schema.js";
-import { getAllowedPlanEquipment } from "./plan.rules.js";
+import { getAllowedPlanEquipment } from "../plan.rules.js";
 
 const CONCRETE_STYLES = new Set(CONCRETE_MEAL_PLAN_STYLES);
 const GUIDANCE_STYLES = new Set(["MACRO_BASED", "SIMPLE_GUIDANCE"]);

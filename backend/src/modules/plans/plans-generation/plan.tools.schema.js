@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EXERCISE_OPTIONS } from "../../config/exercise.js";
+import { EXERCISE_OPTIONS } from "../../../config/exercise.js";
 
 // These are search/payload budgets, not fitness recommendations.
 export const PLAN_TOOL_LIMITS = Object.freeze({

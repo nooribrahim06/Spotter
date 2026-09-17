@@ -6,9 +6,9 @@ import {
 } from "../../middlewares/errorHandling.js";
 import { findCompatibleTemplate } from "./planTemplate.repository.js";
 import { buildPlanGenerationContext } from "./plan.context.js";
-import { createPlanTools } from "./plan.tools.js";
+import { createPlanTools } from "./plans-generation/plan.tools.js";
 import { generatePlanWithAI } from "./plan.generation.js";
-import { prepareGeneratedPlanValidation, validateGeneratedPlanForContext } from "./plan-generated.rules.js";
+import { prepareGeneratedPlanValidation, validateGeneratedPlanForContext } from "./plans-generation/plan-generated.rules.js";
 export async function getPlanContext(userId, db) {
   const source = await planRepository.getPlanGenerationSourceData(userId, db);
 

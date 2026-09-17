@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PLAN_NUTRITION_TOLERANCE } from "../../config/plan.js";
+import { PLAN_NUTRITION_TOLERANCE } from "../../../config/plan.js";
 import {
   generatedPlanSchema,
   PLAN_WEEKDAYS,

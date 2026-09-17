@@ -12,7 +12,7 @@ import {
   PLAN_CATALOG_TOOL_NAME,
   PLAN_TOOL_LIMITS,
   searchPlanCatalogToolSchema,
-} from "../src/modules/plans/plan.tools.schema.js";
+} from "../src/modules/plans/plans-generation/plan.tools.schema.js";
 
 // STEP 1: two searches inside ONE real batch-tool call.
 // We advertise the production definition but never execute the searches.

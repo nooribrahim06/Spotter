@@ -13,8 +13,8 @@ import {
   sendToolCallRequestToGroq,
   sendContentGenerationRequestToGroq,
 } from "../../providers/ai/groq.provider.js";
-import { buildPlanSearchPrompt, buildPlanGenerationPrompt } from "./plan.prompt.js";
-import { generatedPlanSchema } from "./plan.content-schema.js";
+import { buildPlanSearchPrompt, buildPlanGenerationPrompt } from "./plans-generation/plan.prompt.js";
+import { generatedPlanSchema } from "./plans-generation/plan.content-schema.js";
 import {
   AIProviderInvalidResponseError,
   PlanGenerationError,
