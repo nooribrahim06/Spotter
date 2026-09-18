@@ -2,11 +2,18 @@ import express from "express";
 import { authenticateToken } from "../../middlewares/auth.middleware.js";
 import { validateQuery, validateBody, validateParams } from "../../middlewares/validatebody.js";
 import * as controller from "./plan.controller.js";
-import { planContextQuerySchema, generatePlanSchema, planListQuerySchema, planIdParamSchema } from "./plan.validate.js";
+import { planContextQuerySchema, generatePlanSchema, planListQuerySchema, planIdParamSchema, activatePlanSchema } from "./plan.validate.js";
 
 export const planRoutes = express.Router();
 
 planRoutes.use(express.json({ limit: "100kb" }), authenticateToken);
+// the req body contaians the plan id that was active when the user reviewed this draft
+// or null if none was active. The server will check that the plan is still active and owned by the user
+// before activating the new plan.
+planRoutes.post("/:planId/activate",
+  validateParams(planIdParamSchema),
+  validateBody(activatePlanSchema),
+   controller.activatePlan);
 // simply reyturn all plans for the user with pagination and filtering
 
 // the returend structure is { items: [plan], pagination: { page, limit, totalItems, totalPages, hasNextPage } }

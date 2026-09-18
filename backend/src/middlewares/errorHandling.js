@@ -484,3 +484,9 @@ export class PlanNotFoundError extends AppError {
     super("Plan not found.", 404, "PLAN_NOT_FOUND");
   }
 }
+
+export class PlanActivationConflictError extends AppError {
+  constructor(message, code = "PLAN_ACTIVATION_CONFLICT") {
+    super(message, 409, code);
+  }
+}

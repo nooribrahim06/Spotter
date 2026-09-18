@@ -1,5 +1,11 @@
 import * as planService from "./plan.service.js";
 
+export async function activatePlan(req, res) {
+  const plan = await planService.activatePlan(req.user.id, req.validatedParams.planId, req.validatedBody);
+  res.set("Cache-Control", "no-store");
+  return res.status(200).json({ data: plan });
+}
+
 export async function listPlans(req, res) {
   const result = await planService.listPlans(req.user.id, req.validatedQuery);
   res.set("Cache-Control", "no-store");

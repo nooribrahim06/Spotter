@@ -14,6 +14,11 @@ export const planIdParamSchema = z.object({
   planId: z.string().uuid("Plan ID must be a valid UUID."),
 }).strict();
 
+// The active plan shown when the user reviewed this draft; null means none.
+export const activatePlanSchema = z.object({
+  expectedActivePlanId: z.string().uuid().nullable(),
+}).strict();
+
 const localDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format")

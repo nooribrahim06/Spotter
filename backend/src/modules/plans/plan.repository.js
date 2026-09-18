@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { Prisma } from "../../../generated/prisma/client.ts";
 import { prisma } from "../../lib/prisma.js";
-import { databaseError } from "../../middlewares/errorHandling.js";
+import { databaseError, AppError, PlanNotFoundError, PlanActivationConflictError } from "../../middlewares/errorHandling.js";
 
 // PostgreSQL's weekday enum is declared Monday through Sunday.
 const planDetailsInclude = {
@@ -52,6 +52,91 @@ export async function findActivePlan(userId, db = prisma) {
     });
   } catch {
     throw new databaseError("Database error occurred while fetching the active plan.");
+  }
+}
+
+// Hydrate only the stored selections for the existing plan rules at activation.
+// Draft saving deliberately does not do this check.
+export async function loadActivationCatalog(userId, plan, db = prisma) {
+  try {
+    const exerciseIds = new Set(), foodIds = new Set(), recipeIds = new Set();
+    for (const day of plan.days) {
+      for (const workout of day.workouts) {
+        for (const exercise of workout.exercises) exerciseIds.add(exercise.exerciseId);
+      }
+      for (const options of [day.breakfastOptions, day.lunchOptions, day.dinnerOptions, day.snackOptions]) {
+        for (const option of options ?? []) {
+          for (const item of option.items) {
+            if (item.itemType === "FOOD") foodIds.add(item.foodId);
+            else recipeIds.add(item.recipeId);
+          }
+        }
+      }
+    }
+    const visible = { isActive: true, OR: [{ createdByUserId: null }, { createdByUserId: userId }] };
+    const exercises = await db.exercise.findMany({ where: { id: { in: [...exerciseIds] }, isActive: true } });
+    const foods = await db.food.findMany({ where: { id: { in: [...foodIds] }, ...visible } });
+    const recipes = await db.recipe.findMany({ where: {
+      id: { in: [...recipeIds] }, ...visible,
+      ingredients: { every: { food: { is: visible } } },
+    } });
+    // The shared validator expects the same numeric nutrients as catalog tools.
+    return [
+      { name: "searchExercises", result: { ok: true, items: exercises } },
+      { name: "searchFoods", result: { ok: true, items: foods.map((food) => ({
+        ...food, caloriesPer100g: Number(food.caloriesPer100g),
+        proteinGramsPer100g: Number(food.proteinGramsPer100g),
+        carbohydrateGramsPer100g: Number(food.carbohydrateGramsPer100g), fatGramsPer100g: Number(food.fatGramsPer100g),
+      })) } },
+      { name: "searchRecipes", result: { ok: true, items: recipes.map((recipe) => ({
+        ...recipe, caloriesPerServing: Number(recipe.caloriesPerServing),
+        proteinGramsPerServing: Number(recipe.proteinGramsPerServing),
+        carbohydrateGramsPerServing: Number(recipe.carbohydrateGramsPerServing), fatGramsPerServing: Number(recipe.fatGramsPerServing),
+      })) } },
+    ];
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while reading the plan catalog.");
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export async function activateOwnedPlan(userId, planId, expectedActivePlanId, db = prisma) {
+  try {
+    return await db.$transaction(async (tx) => {
+      // One user-row lock makes competing activations take turns.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      
+      const plan = await tx.plan.findFirst({ where: { id: planId, userId }, include: planDetailsInclude });
+      if (!plan) throw new PlanNotFoundError();
+      // A retry returns the original activation, without resetting its timestamp.
+      if (plan.status === "ACTIVE") return plan;
+      if (plan.status !== "DRAFT") {
+        throw new PlanActivationConflictError("Only a draft plan can be activated.", "PLAN_NOT_DRAFT");
+      }
+      const active = await tx.plan.findFirst({ where: { userId, status: "ACTIVE" }, select: { id: true } });
+      if ((active?.id ?? null) !== expectedActivePlanId) {
+        throw new PlanActivationConflictError("Your active plan changed. Refresh before activating this draft.", "PLAN_ACTIVE_CHANGED");
+      }
+      // Profile/catalog checks already ran in the service, outside this transaction.
+      const now = new Date();
+
+      if (active) {
+        await tx.plan.update({
+          where: { id: active.id },
+          data: { status: "SUPERSEDED", endedAt: now },
+        });
+      }
+      return tx.plan.update({
+        where: { id: plan.id }, data: { status: "ACTIVE", activatedAt: now, endedAt: null },
+        include: planDetailsInclude,
+      });
+    }, { isolationLevel: "ReadCommitted", maxWait: 5000, timeout: 15000 });
+  } catch (cause) {
+    if (cause instanceof AppError) throw cause;
+    const error = new databaseError("Database error occurred while activating the plan.");
+    error.cause = cause;
+    throw error;
   }
 }
 

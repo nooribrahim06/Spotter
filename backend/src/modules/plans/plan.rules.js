@@ -1,3 +1,6 @@
+import { formatInTimeZone } from "date-fns-tz";
+import { calculateFitnessTargets } from "../profiles/profile.targets.js";
+import { PlanDraftConflictError, PlanActivationConflictError, PlanContextIncompleteError, PlanNotEligibleError } from "../../middlewares/errorHandling.js";
 import { EXERCISE_OPTIONS } from "../../config/exercise.js";
 import { PROFILE_OPTIONS } from "../../config/profile.js";
 import { CONCRETE_MEAL_PLAN_STYLES } from "../../config/plan.js";
@@ -203,4 +206,37 @@ export function getAllowedPlanEquipment(trainingProfile) {
       .map((item) => item.code)
       .filter((code) => EXERCISE_OPTIONS.equipment.includes(code)),
   ])];
+}
+
+// The draft was validated when generated. Check only current activation eligibility.
+export function checkPlanActivation(plan, source, now = new Date()) {
+  const readiness = evaluatePlanReadiness(source);
+  if (readiness.blocked) throw new PlanNotEligibleError(readiness);
+  if (!readiness.ready) throw new PlanContextIncompleteError(readiness);
+  if (plan.goalId !== source.goal.id || plan.timezone !== source.user.timezone ||
+      plan.nutritionPlanStyle !== source.nutritionProfile.planStyle) {
+    throw new PlanDraftConflictError();
+  }
+  // These profiles supplied the AI's constraints. If edited since this draft was
+  // saved, regenerate rather than pretending to re-evaluate free-text restrictions.
+  if ([source.bodyProfile, source.healthProfile, source.nutritionProfile,
+    source.trainingProfile, source.goal].some((record) => record.updatedAt > plan.createdAt)) {
+    throw new PlanDraftConflictError();
+  }
+  let today;
+  try { today = formatInTimeZone(now, plan.timezone, "yyyy-MM-dd"); }
+  catch { throw new PlanActivationConflictError("Set a valid timezone before activation."); }
+  const start = plan.startDate?.toISOString().slice(0, 10);
+  const end = plan.endDate?.toISOString().slice(0, 10);
+  if (start !== today || !end || end < today) {
+    throw new PlanActivationConflictError("The plan must start today in its timezone and end today or later.", "PLAN_DATES_INVALID");
+  }
+  const targets = calculateFitnessTargets({
+    bodyProfile: source.bodyProfile, goal: source.goal, progressEntry: source.latestProgress, asOfDate: now,
+  });
+  if (plan.calorieTarget !== targets.dailyCalories || plan.proteinTargetGrams !== targets.proteinGrams ||
+      plan.carbohydrateTargetGrams !== targets.carbohydrateGrams || plan.fatTargetGrams !== targets.fatGrams) {
+    throw new PlanDraftConflictError();
+  }
+  return targets;
 }
