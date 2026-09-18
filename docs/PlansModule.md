@@ -1,5 +1,7 @@
 # Plans Module - Proposed Architecture and Contract
 
+> Implemented draft generation and persistence are documented in [PlanDrafts.md](PlanDrafts.md). The sections below describe the broader proposed lifecycle; not every endpoint or field is implemented.
+
 Status: design document, not implemented. Written September 14, 2026.
 
 This document defines the proposed Plan module for Spotter. It covers database models, relationships, endpoints, business rules, ownership, and implementation responsibilities. Field and endpoint names below are proposals, not claims about the current API. No migration or runtime change is included with this document.
