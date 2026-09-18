@@ -113,7 +113,7 @@ See the [signup transaction](backend/src/modules/auth/auth.service.js), [queue c
 | Daily summaries | Meals, macros, calories, and workout activity aggregated using the user's local-day boundaries. |
 | AI plan proposals | Readiness checks, template context, catalog searches, structured generation, and user-specific validation. |
 
-**Current scope:** plan generation returns a validated proposal; saving and activating generated plans are future stages. AI conversation and audit-log models exist in the schema, but chat endpoints and automatic audit logging are not implemented. The daily-summary API calculates from source records; SQL triggers maintain existing summary-cache rows when installed.
+**Current scope:** plan generation saves a validated draft with a locked user-context check. Activation and draft retrieval endpoints are future stages. See the [draft persistence contract](docs/PlanDrafts.md). AI conversation and audit-log models exist in the schema, but chat endpoints and automatic audit logging are not implemented. The daily-summary API calculates from source records; SQL triggers maintain existing summary-cache rows when installed.
 
 ## Authentication as a system
 

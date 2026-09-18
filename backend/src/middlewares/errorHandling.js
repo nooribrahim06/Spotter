@@ -471,3 +471,10 @@ export class PlanContentInvalidError extends AppError {
     super("The generated plan failed the user-specific rules.", 422, "PLAN_CONTENT_INVALID", details);
   }
 }
+
+export class PlanDraftConflictError extends AppError {
+  constructor() {
+    super("Your planning context changed during generation. Please generate your plan again.",
+      409, "PLAN_CONTEXT_CHANGED");
+  }
+}

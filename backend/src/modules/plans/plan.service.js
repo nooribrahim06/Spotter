@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import * as planRepository from "./plan.repository.js";
 import { evaluatePlanReadiness } from "./plan.rules.js";
 import { calculateFitnessTargets } from "../profiles/profile.targets.js";
 import {
   InvalidAccessTokenError,
+  PlanDraftConflictError,
 } from "../../middlewares/errorHandling.js";
 import { findCompatibleTemplate } from "./planTemplate.repository.js";
 import { buildPlanGenerationContext } from "./plan.context.js";
@@ -34,11 +36,12 @@ export async function getPlanContext(userId, db) {
 // 2. Validate that the user has all required data to generate a plan.
 // 3. Calculate backend-owned targets and select a compatible plan template.
 // 4. Build the complete, bounded AI generation context.
-// 5. Call the AI generation adapter and return the generated plan proposal.
+// 5. Generate and validate, then atomically check context and save a draft.
 export async function generatePlan(userId, input, db) {
   // 1. Load authoritative user context
   const source =
     await planRepository.getPlanGenerationSourceData(userId, db);
+  if (!source.user) throw new InvalidAccessTokenError();
 
   // Authenticate/bind the tool session and check readiness ONCE.
   // getPlanContext() is a separate HTTP request and evaluates readiness itself.
@@ -84,7 +87,63 @@ export async function generatePlan(userId, input, db) {
     validationContext, // this is what we prepared above before the AI call, not the AI's output
   });
 
-  // This endpoint currently returns a validated proposal. Draft persistence,
-  // a fresh context/access check, and the transaction are the next stage.
-  return validated.plan;
+  return persistGeneratedDraft({ userId, source, targets, template, input,
+    plan: validated.plan }, db);
+}
+
+// The repository owns locks/transactions; the service owns public conflict errors.
+export async function persistGeneratedDraft(context, db) {
+  const result = await planRepository.saveDraftIfUnchanged(buildDraftInput(context), db);
+  if (!result.ok) throw new PlanDraftConflictError();
+  return result.plan;
+}
+
+function addMealOptionIds(options) {
+  return options?.map((option) => ({ ...option, id: randomUUID() })) ?? null;
+}
+
+// Map the already-validated proposal to draft fields. No catalog checks here.
+export function buildDraftInput({ userId, source, targets, template, input, plan }) {
+  return {
+    userId,
+    expectedContext: source,
+    draftData: {
+      userId,
+      goalId: source.goal.id,
+      sourceTemplateId: template?.id ?? null,
+      status: "DRAFT",
+      nutritionPlanStyle: source.nutritionProfile.planStyle,
+      timezone: source.user.timezone,
+      title: plan.title,
+      explanation: plan.explanation,
+      calorieTarget: targets.dailyCalories,
+      proteinTargetGrams: targets.proteinGrams,
+      carbohydrateTargetGrams: targets.carbohydrateGrams,
+      fatTargetGrams: targets.fatGrams,
+      // Requested schedule dates are stored; activation timestamps remain null.
+      startDate: new Date(`${input.startDate}T00:00:00Z`),
+      endDate: new Date(`${input.endDate}T00:00:00Z`),
+      days: {
+        create: plan.days.map((day) => ({
+          dayOfWeek: day.dayOfWeek,
+          breakfastOptions: addMealOptionIds(day.breakfastOptions),
+          lunchOptions: addMealOptionIds(day.lunchOptions),
+          dinnerOptions: addMealOptionIds(day.dinnerOptions),
+          snackOptions: addMealOptionIds(day.snackOptions),
+          nutritionGuidance: day.nutritionGuidance,
+          notes: day.notes,
+          workouts: {
+            create: day.workouts.map((workout, orderIndex) => ({
+              slot: workout.slot,
+              orderIndex,
+              name: workout.name,
+              estimatedDurationMinutes: workout.estimatedDurationMinutes,
+              exercises: workout.exercises,
+              notes: workout.notes,
+            })),
+          },
+        })),
+      },
+    },
+  };
 }

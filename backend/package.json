@@ -12,6 +12,7 @@
     "test": "node --test",
     "test:onboarding-db": "node --test integration/onboarding.js",
     "test:profiles-db": "node --test integration/profiles.js",
+    "test:plans-db": "node --test integration/plan-drafts.js",
     "worker:email": "node src/workers/email.worker.js",
     "seed:recipes": "prisma generate && node prisma/seed-recipes.js",
     "seed:foods": "prisma generate && node prisma/seed-food.js",

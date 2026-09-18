@@ -10,5 +10,5 @@ export async function getPlanContext(req, res) {
 export async function generatePlan(req, res) {
   const result = await planService.generatePlan(req.user.id, req.validatedBody);
   res.set("Cache-Control", "no-store");
-  return res.status(200).json({ data: result });
+  return res.status(201).json({ data: result });
 }
