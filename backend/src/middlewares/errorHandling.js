@@ -478,3 +478,9 @@ export class PlanDraftConflictError extends AppError {
       409, "PLAN_CONTEXT_CHANGED");
   }
 }
+
+export class PlanNotFoundError extends AppError {
+  constructor() {
+    super("Plan not found.", 404, "PLAN_NOT_FOUND");
+  }
+}

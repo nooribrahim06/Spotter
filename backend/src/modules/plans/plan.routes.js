@@ -1,12 +1,25 @@
 import express from "express";
 import { authenticateToken } from "../../middlewares/auth.middleware.js";
-import { validateQuery , validateBody } from "../../middlewares/validatebody.js";
+import { validateQuery, validateBody, validateParams } from "../../middlewares/validatebody.js";
 import * as controller from "./plan.controller.js";
-import { planContextQuerySchema , generatePlanSchema } from "./plan.validate.js";
+import { planContextQuerySchema, generatePlanSchema, planListQuerySchema, planIdParamSchema } from "./plan.validate.js";
 
 export const planRoutes = express.Router();
 
 planRoutes.use(express.json({ limit: "100kb" }), authenticateToken);
+// simply reyturn all plans for the user with pagination and filtering
+
+// the returend structure is { items: [plan], pagination: { page, limit, totalItems, totalPages, hasNextPage } }
+// where the plan as a item has a less more structure than the plan returned by getPlanById, it does not include the plan details, only the plan metadata
+planRoutes.get("/", 
+  validateQuery(planListQuerySchema),
+   controller.listPlans);
+// simply return the active plan for the user
+
+// not a summary , but a detailed plan with all the plan details, including the days and workouts
+planRoutes.get("/active",
+   validateQuery(planContextQuerySchema), 
+   controller.getActivePlan);
 
 // GET /api/plans/context: readiness, missing answers, and target preview.
 planRoutes.get(
@@ -21,3 +34,11 @@ planRoutes.post(
   validateBody(generatePlanSchema),
   controller.generatePlan
 );
+
+// Static paths above must take precedence over a plan ID.
+// we validate the planId param to be a valid UUID, so we don't have to worry about conflicts with other routes
+// and we validate the planContextQuerySchema to be an empty object 
+planRoutes.get("/:planId", 
+  validateParams(planIdParamSchema),
+  validateQuery(planContextQuerySchema),
+   controller.getPlanById);

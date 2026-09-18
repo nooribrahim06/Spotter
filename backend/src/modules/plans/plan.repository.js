@@ -3,6 +3,58 @@ import { Prisma } from "../../../generated/prisma/client.ts";
 import { prisma } from "../../lib/prisma.js";
 import { databaseError } from "../../middlewares/errorHandling.js";
 
+// PostgreSQL's weekday enum is declared Monday through Sunday.
+const planDetailsInclude = {
+  days: {
+    orderBy: { dayOfWeek: "asc" },
+    include: { workouts: { orderBy: { orderIndex: "asc" } } },
+  },
+};
+
+export async function findPlans(userId, { status, goalId, page, limit }, db = prisma) {
+  const where = { userId, ...(status && { status }), ...(goalId && { goalId }) };
+  try {
+    const [items, totalItems] = await Promise.all([
+      db.plan.findMany({
+        where,
+        select: {
+          id: true, goalId: true, title: true, status: true, nutritionPlanStyle: true,
+          timezone: true, startDate: true, endDate: true, activatedAt: true,
+          endedAt: true, createdAt: true, updatedAt: true,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.plan.count({ where }),
+    ]);
+    return { items, totalItems };
+  } catch {
+    throw new databaseError("Database error occurred while listing plans.");
+  }
+}
+
+export async function findOwnedPlanById(userId, planId, db = prisma) {
+  try {
+    return await db.plan.findFirst({
+      where: { id: planId, userId }, include: planDetailsInclude,
+    });
+  } catch {
+    throw new databaseError("Database error occurred while fetching the plan.");
+  }
+}
+
+export async function findActivePlan(userId, db = prisma) {
+  try {
+    // Read stored status only; lifecycle transitions belong to activation/ending.
+    return await db.plan.findFirst({
+      where: { userId, status: "ACTIVE" }, include: planDetailsInclude,
+    });
+  } catch {
+    throw new databaseError("Database error occurred while fetching the active plan.");
+  }
+}
+
 // Keep projections separate from queries so the context contract is easy to
 // review. Account credentials and unrelated identity fields are not needed.
 const userSelect = {

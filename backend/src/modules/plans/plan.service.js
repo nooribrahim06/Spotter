@@ -5,12 +5,38 @@ import { calculateFitnessTargets } from "../profiles/profile.targets.js";
 import {
   InvalidAccessTokenError,
   PlanDraftConflictError,
+  PlanNotFoundError,
 } from "../../middlewares/errorHandling.js";
 import { findCompatibleTemplate } from "./planTemplate.repository.js";
 import { buildPlanGenerationContext } from "./plan.context.js";
 import { createPlanTools } from "./plans-generation/plan.tools.js";
 import { generatePlanWithAI } from "./plan.generation.js";
 import { prepareGeneratedPlanValidation, validateGeneratedPlanForContext } from "./plans-generation/plan-generated.rules.js";
+
+export async function listPlans(userId, query, db) {
+  const { items, totalItems } = await planRepository.findPlans(userId, query, db);
+  return {
+    items,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      totalItems,
+      totalPages: Math.ceil(totalItems / query.limit),
+      hasNextPage: query.page * query.limit < totalItems,
+    },
+  };
+}
+
+export async function getPlanById(userId, planId, db) {
+  const plan = await planRepository.findOwnedPlanById(userId, planId, db);
+  if (!plan) throw new PlanNotFoundError();
+  return plan;
+}
+
+export async function getActivePlan(userId, db) {
+  return planRepository.findActivePlan(userId, db);
+}
+
 export async function getPlanContext(userId, db) {
   const source = await planRepository.getPlanGenerationSourceData(userId, db);
 
