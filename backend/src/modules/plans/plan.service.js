@@ -51,8 +51,8 @@ export async function generatePlan(userId, input, db) {
     progressEntry: source.latestProgress,
   });
 
-  // Readiness was checked by createPlanTools using the same rules as /context.
-  // Prepare final-validation settings; this adds no new profile eligibility gate.
+  // Prepare nutrition targets, allowed deviations, and required meal slots
+  // for validating the AI's response. Fail early if backend settings are invalid.
   const validationContext = prepareGeneratedPlanValidation({ source, targets });
 
   // 4. Select generation reference
@@ -81,7 +81,7 @@ export async function generatePlan(userId, input, db) {
     generatedPlan: plan,
     source,
     toolResults,
-    validationContext,
+    validationContext, // this is what we prepared above before the AI call, not the AI's output
   });
 
   // This endpoint currently returns a validated proposal. Draft persistence,

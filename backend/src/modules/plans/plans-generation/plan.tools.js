@@ -62,11 +62,8 @@ function foodCandidate(food) {
  * the final selections, nutrition, schedule, and restrictions before saving.
  */
 export function createPlanTools({ userId, source, db }) {
-  if (!z.string().uuid().safeParse(userId).success ||
-      source?.user?.id?.toLowerCase() !== userId.toLowerCase()) {
-    throw new InvalidAccessTokenError();
-  }
-
+  // re check the user is redundant because the userID is already sent from 
+  // authentication middleware, but we still check the source to ensure the user is still valid
   const readiness = evaluatePlanReadiness(source);
   if (readiness.blocked) throw new PlanNotEligibleError(readiness);
   if (!readiness.ready) throw new PlanContextIncompleteError(readiness);

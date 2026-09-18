@@ -36,6 +36,10 @@ export async function generatePlanWithAI({ context, tools }) {
   // 3. Run the searches. The provider already guarantees one tool call;
   // tools.execute() parses/validates its arguments and queries the database.
   const call = toolCalls[0];
+  // tools = { definitions: [...], execute: async (name, argumentsValue) => ... }.
+  // execute runs the requested searches and returns { ok: true, results: [{ index, name, result }] }
+  // or { ok: false, error: { code, message, details } }. Each search result has its own
+  // { ok: true, items, ... } or { ok: false, error } shape; batch.ok does not mean all succeeded.
   const batch = await tools.execute(call.name, call.arguments);
   if (!batch.ok) {
     throw new PlanGenerationError(
