@@ -288,3 +288,33 @@ export async function createWorkoutFromPlan(userId, planWorkout, scheduledDate, 
     throw error;
   }
 }
+
+/**
+ * Returns lightweight workout records for all prescribed workout IDs that were
+ * logged on the given scheduled date. Used by daily schedule adherence enrichment.
+ */
+export async function findLoggedWorkoutsForPlanDay(userId, planWorkoutIds, scheduledDate, db = prisma) {
+  if (!planWorkoutIds.length) return [];
+  try {
+    return await db.workout.findMany({
+      where: {
+        userId,
+        sourcePlanWorkoutId: { in: planWorkoutIds },
+        scheduledDate,
+        status: { in: ["IN_PROGRESS", "COMPLETED", "CANCELLED"] },
+      },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        completedAt: true,
+        sourcePlanWorkoutId: true,
+        scheduledDate: true,
+      },
+    });
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while fetching logged workouts for plan day.");
+    error.cause = cause;
+    throw error;
+  }
+}

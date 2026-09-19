@@ -4,7 +4,10 @@ import {
   InvalidMealItemsError,
   PlanNotFoundError,
   PlanScheduleMismatchError,
+  PlanStatusConflictError,
 } from "../../middlewares/errorHandling.js";
+import { formatInTimeZone } from "date-fns-tz";
+import { getWeekdayForDate } from "../plans/plan.rules.js";
 import * as mealRepository from "./meal.repository.js";
 import {
   buildMealDateRange,
@@ -48,12 +51,45 @@ async function findAndValidatePlanMealOption(
     throw new PlanNotFoundError("Prescribed plan day not found.");
   }
   const plan = planDay.plan;
+
+  // 1. Status check: cannot log against DRAFT or DISCARDED plans
+  if (plan.status === "DRAFT" || plan.status === "DISCARDED") {
+    throw new PlanStatusConflictError(
+      "Meals cannot be logged from draft or discarded plans.",
+      "PLAN_NOT_ACTIVE"
+    );
+  }
+
+  // 2. Scheduled coverage [startDate, endDate]
   const startDateStr = plan.startDate?.toISOString().slice(0, 10);
   const endDateStr = plan.endDate?.toISOString().slice(0, 10);
   if (scheduledDate < startDateStr || scheduledDate > endDateStr) {
     throw new PlanScheduleMismatchError(
       "Scheduled date falls outside the plan's coverage dates."
     );
+  }
+
+  // 3. Weekday matching
+  const expectedWeekday = getWeekdayForDate(scheduledDate);
+  if (planDay.dayOfWeek && planDay.dayOfWeek !== expectedWeekday) {
+    throw new PlanScheduleMismatchError(
+      `Prescribed meal is scheduled for ${planDay.dayOfWeek}, not ${expectedWeekday}.`
+    );
+  }
+
+  // 4. Activation interval check
+  const tz = plan.timezone || "UTC";
+  if (plan.activatedAt) {
+    const activatedDateStr = formatInTimeZone(plan.activatedAt, tz, "yyyy-MM-dd");
+    if (scheduledDate < activatedDateStr) {
+      throw new PlanScheduleMismatchError("Scheduled date falls before the plan's activation date.");
+    }
+  }
+  if (plan.endedAt) {
+    const endedDateStr = formatInTimeZone(plan.endedAt, tz, "yyyy-MM-dd");
+    if (scheduledDate > endedDateStr) {
+      throw new PlanScheduleMismatchError("Scheduled date falls after the plan's termination date.");
+    }
   }
 
   const slots = [

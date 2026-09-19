@@ -3,6 +3,8 @@ import { formatInTimeZone } from "date-fns-tz";
 import * as planRepository from "./plan.repository.js";
 import { evaluatePlanReadiness, checkPlanActivation, getWeekdayForDate, getPlanDayForWeekday } from "./plan.rules.js";
 import { calculateFitnessTargets } from "../profiles/profile.targets.js";
+import { findLoggedWorkoutsForPlanDay } from "../workouts/workout.repository.js";
+import { findLoggedMealsForPlanDay } from "../meals/meal.repository.js";
 import {
   InvalidAccessTokenError,
   PlanDraftConflictError,
@@ -37,21 +39,24 @@ export async function activatePlan(userId, planId, input, db) {
   }
 
   // 3. Switch statuses atomically. No validation callbacks enter the repository.
-  return planRepository.activateOwnedPlan(userId, planId, input.expectedActivePlanId, db);
+  const activated = await planRepository.activateOwnedPlan(userId, planId, input.expectedActivePlanId, db);
+  return serializePlan(activated);
 }
 
 export async function endActivePlan(userId, planId, db) {
-  return planRepository.endOwnedActivePlan(userId, planId, db);
+  const ended = await planRepository.endOwnedActivePlan(userId, planId, db);
+  return serializePlan(ended);
 }
 
 export async function discardDraftPlan(userId, planId, db) {
-  return planRepository.discardOwnedDraftPlan(userId, planId, db);
+  const discarded = await planRepository.discardOwnedDraftPlan(userId, planId, db);
+  return serializePlan(discarded);
 }
 
 export async function listPlans(userId, query, db) {
   const { items, totalItems } = await planRepository.findPlans(userId, query, db);
   return {
-    items,
+    items: items.map(serializePlan),
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -84,12 +89,45 @@ export async function getActivePlan(userId, db) {
 export async function getDailySchedule(userId, dateString, db) {
   const plan = await planRepository.findPlanForDate(userId, dateString, db);
   if (!plan) {
-    return { plan: null, day: null };
+    return { plan: null, day: null, adherence: null };
   }
 
   const weekday = getWeekdayForDate(dateString, plan.timezone);
   const serializedPlan = serializePlan(plan);
   const day = getPlanDayForWeekday(serializedPlan, weekday);
+
+  if (!day) {
+    return {
+      plan: { id: plan.id, title: plan.title, timezone: plan.timezone, status: plan.status },
+      day: null,
+      adherence: null,
+    };
+  }
+
+  // Collect prescribed workout IDs from the plan day
+  const planWorkoutIds = (day.workouts ?? []).map((w) => w.id).filter(Boolean);
+
+  // Fetch logged workouts and meals in parallel — no serial waterfall
+  const [loggedWorkouts, loggedMeals] = await Promise.all([
+    findLoggedWorkoutsForPlanDay(userId, planWorkoutIds, dateString, db),
+    findLoggedMealsForPlanDay(userId, day.id, dateString, db),
+  ]);
+
+  // Build a lookup: planWorkoutId → logged workout
+  const workoutByPrescribedId = new Map(
+    loggedWorkouts.map((w) => [w.sourcePlanWorkoutId, w])
+  );
+
+  // Enrich each prescribed workout with its logged occurrence
+  const enrichedWorkouts = (day.workouts ?? []).map((prescribed) => ({
+    ...prescribed,
+    loggedOccurrence: workoutByPrescribedId.get(prescribed.id) ?? null,
+  }));
+
+  // Compute adherence counts
+  const workoutsPrescribed = enrichedWorkouts.length;
+  const workoutsCompleted = loggedWorkouts.filter((w) => w.status === "COMPLETED").length;
+  const mealsLogged = loggedMeals.length;
 
   return {
     plan: {
@@ -98,7 +136,16 @@ export async function getDailySchedule(userId, dateString, db) {
       timezone: plan.timezone,
       status: plan.status,
     },
-    day,
+    day: {
+      ...day,
+      workouts: enrichedWorkouts,
+      loggedMeals,
+    },
+    adherence: {
+      workoutsPrescribed,
+      workoutsCompleted,
+      mealsLogged,
+    },
   };
 }
 
@@ -193,7 +240,7 @@ export async function generatePlan(userId, input, db) {
 export async function persistGeneratedDraft(context, db) {
   const result = await planRepository.saveDraftIfUnchanged(buildDraftInput(context), db);
   if (!result.ok) throw new PlanDraftConflictError();
-  return result.plan;
+  return serializePlan(result.plan);
 }
 
 function roundTwoDecimals(val) {

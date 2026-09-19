@@ -241,3 +241,29 @@ export async function findPlanDayForUser(planDayId, db = prisma) {
   }
 }
 
+/**
+ * Returns meals logged by the user from a specific plan day on a given scheduled date.
+ * Used by daily schedule adherence enrichment.
+ */
+export async function findLoggedMealsForPlanDay(userId, planDayId, scheduledDate, db = prisma) {
+  try {
+    return await db.meal.findMany({
+      where: {
+        userId,
+        sourcePlanDayId: planDayId,
+        scheduledDate,
+      },
+      select: {
+        id: true,
+        mealType: true,
+        occurredAt: true,
+        sourceMealOptionId: true,
+        scheduledDate: true,
+      },
+    });
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while fetching logged meals for plan day.");
+    error.cause = cause;
+    throw error;
+  }
+}

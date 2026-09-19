@@ -10,6 +10,7 @@ import {
   PlanOccurrenceCompletedError,
 } from "../../middlewares/errorHandling.js";
 import { formatInTimeZone } from "date-fns-tz";
+import { getWeekdayForDate } from "../plans/plan.rules.js";
 import {
   cancelActiveWorkout,
   completeActiveWorkout,
@@ -64,6 +65,26 @@ export async function startWorkoutFromPlan(userId, { planWorkoutId, scheduledDat
   }
   if (scheduledDate !== today) {
     throw new PlanScheduleMismatchError("Workouts can only be started live for today's scheduled date.");
+  }
+
+  const expectedWeekday = getWeekdayForDate(scheduledDate);
+  if (planWorkout.planDay?.dayOfWeek && planWorkout.planDay.dayOfWeek !== expectedWeekday) {
+    throw new PlanScheduleMismatchError(
+      `Prescribed workout is scheduled for ${planWorkout.planDay.dayOfWeek}, not ${expectedWeekday}.`
+    );
+  }
+
+  if (plan.activatedAt) {
+    const activatedDateStr = formatInTimeZone(plan.activatedAt, plan.timezone, "yyyy-MM-dd");
+    if (scheduledDate < activatedDateStr) {
+      throw new PlanScheduleMismatchError("Scheduled date falls before the plan's activation date.");
+    }
+  }
+  if (plan.endedAt) {
+    const endedDateStr = formatInTimeZone(plan.endedAt, plan.timezone, "yyyy-MM-dd");
+    if (scheduledDate > endedDateStr) {
+      throw new PlanScheduleMismatchError("Scheduled date falls after the plan's termination date.");
+    }
   }
 
   const targetDate = new Date(`${scheduledDate}T00:00:00.000Z`);

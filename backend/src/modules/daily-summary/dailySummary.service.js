@@ -5,6 +5,7 @@ import { calculateFitnessTargets } from "../profiles/profile.targets.js";
 import * as planRepository from "../plans/plan.repository.js";
 import * as dailySummaryRepository from "./dailySummary.repository.js";
 import { buildDailySummary } from "./dailySummary.rules.js";
+import { prisma } from "../../lib/prisma.js";
 
 function buildDateRange(date, timezone) {
   if (!timezone) throw new DailySummaryTimezoneRequiredError();
@@ -43,14 +44,12 @@ function calculateTargetsForDate(bodyProfile, activeGoal, date) {
   });
 }
 
-export async function getDailySummary(userId, date, timezone, db) {
+export async function getDailySummary(userId, date, timezone, db = prisma) {
   const dateRange = buildDateRange(date, timezone);
   const [{ meals, workouts }, targetInputs, activePlan] = await Promise.all([
     dailySummaryRepository.findDailyActivity(userId, dateRange, db),
     profileRepository.findTargetInputsForDate(userId, dateRange, db),
-    db?.plan && typeof db.plan.findFirst === "function"
-      ? planRepository.findPlanForDate(userId, date, db)
-      : null,
+    planRepository.findPlanForDate(userId, date, db),
   ]);
   const profileTargets = calculateTargetsForDate(
     targetInputs.bodyProfile,

@@ -11,6 +11,9 @@ export function serializeWorkout(workout) {
     estimatedCaloriesBurned: workout.estimatedCaloriesBurned,
     notes: workout.notes,
     exercises: workout.exercises.map(serializeWorkoutExercise),
+    // Plan provenance – present only when the workout was started from a plan
+    sourcePlanWorkoutId: workout.sourcePlanWorkoutId ?? null,
+    scheduledDate: workout.scheduledDate ?? null,
     createdAt: workout.createdAt,
     updatedAt: workout.updatedAt,
   };

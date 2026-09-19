@@ -248,13 +248,24 @@ export function checkPlanActivation(plan, source, now = new Date()) {
   return targets;
 }
 
+const PLAN_WEEKDAYS_BY_INDEX = Object.freeze([
+  "SUNDAY",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+]);
+
 /**
- * Resolves the uppercase DayOfWeek (MONDAY..SUNDAY) for a local calendar date
- * in the specified IANA timezone.
+ * Resolves the uppercase DayOfWeek (MONDAY..SUNDAY) for a calendar date YYYY-MM-DD.
+ * Resolves the calendar weekday directly without UTC-noon or timezone hour shifts.
  */
 export function getWeekdayForDate(dateString, timezone) {
-  const date = new Date(`${dateString}T12:00:00.000Z`);
-  return formatInTimeZone(date, timezone, "EEEE").toUpperCase();
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return PLAN_WEEKDAYS_BY_INDEX[date.getUTCDay()];
 }
 
 /**
