@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { formatInTimeZone } from "date-fns-tz";
 import { Prisma } from "../../../generated/prisma/client.ts";
 import { prisma } from "../../lib/prisma.js";
 import { databaseError, AppError, PlanNotFoundError, PlanActivationConflictError, PlanStatusConflictError } from "../../middlewares/errorHandling.js";
@@ -46,10 +47,18 @@ export async function findOwnedPlanById(userId, planId, db = prisma) {
 
 export async function findActivePlan(userId, db = prisma) {
   try {
-    // Read stored status only; lifecycle transitions belong to activation/ending.
-    return await db.plan.findFirst({
+    // Keep the response safe if the lifecycle worker has not run yet. Plan dates
+    // are stored as UTC-midnight date-only values, so expiration is UTC-based.
+    const plan = await db.plan.findFirst({
       where: { userId, status: "ACTIVE" }, include: planDetailsInclude,
     });
+    if (!plan) return null;
+
+    const todayUtc = formatInTimeZone(new Date(), "UTC", "yyyy-MM-dd");
+    const endDateUtc = plan.endDate?.toISOString().slice(0, 10);
+    if (!endDateUtc || todayUtc > endDateUtc) return null;
+
+    return plan;
   } catch {
     throw new databaseError("Database error occurred while fetching the active plan.");
   }
@@ -424,23 +433,24 @@ export async function saveDraftIfUnchanged(input, db = prisma) {
 export async function expireOverduePlans(asOfDate = new Date(), db = prisma) {
   try {
     return await db.$transaction(async (tx) => {
-      // 1. Mark overdue drafts as DISCARDED
+      // Date-only plan boundaries are stored at UTC midnight. A plan remains
+      // valid through end_date and expires once the next UTC date begins.
       const discardedDraftsCount = await tx.$executeRaw`
         UPDATE plans
         SET status = 'DISCARDED'::"PlanStatus",
             updated_at = NOW()
         WHERE status = 'DRAFT'::"PlanStatus"
-          AND end_date < (${asOfDate}::timestamptz AT TIME ZONE timezone)::date
+          AND (end_date AT TIME ZONE 'UTC')::date < (${asOfDate}::timestamptz AT TIME ZONE 'UTC')::date
       `;
 
-      // 2. Mark overdue active plans as ENDED with boundary timestamp
+      // Mark overdue active plans as ENDED with the UTC expiration boundary.
       const endedActivePlansCount = await tx.$executeRaw`
         UPDATE plans
         SET status = 'ENDED'::"PlanStatus",
-            ended_at = (end_date + 1 + TIME '00:00:00') AT TIME ZONE timezone,
+            ended_at = end_date + INTERVAL '1 day',
             updated_at = NOW()
         WHERE status = 'ACTIVE'::"PlanStatus"
-          AND end_date < (${asOfDate}::timestamptz AT TIME ZONE timezone)::date
+          AND (end_date AT TIME ZONE 'UTC')::date < (${asOfDate}::timestamptz AT TIME ZONE 'UTC')::date
       `;
 
       return {
