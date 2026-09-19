@@ -47,16 +47,21 @@ export async function findOwnedPlanById(userId, planId, db = prisma) {
 
 export async function findActivePlan(userId, db = prisma) {
   try {
-    // Keep the response safe if the lifecycle worker has not run yet. Plan dates
-    // are stored as UTC-midnight date-only values, so expiration is UTC-based.
+    // Keep the response safe if the lifecycle worker has not run yet.
+    // Evaluate expiration against the plan's stored IANA timezone boundary.
     const plan = await db.plan.findFirst({
-      where: { userId, status: "ACTIVE" }, include: planDetailsInclude,
+      where: { userId, status: "ACTIVE" },
+      include: planDetailsInclude,
     });
     if (!plan) return null;
 
-    const todayUtc = formatInTimeZone(new Date(), "UTC", "yyyy-MM-dd");
-    const endDateUtc = plan.endDate?.toISOString().slice(0, 10);
-    if (!endDateUtc || todayUtc > endDateUtc) return null;
+    const todayInPlanTz = formatInTimeZone(
+      new Date(),
+      plan.timezone || "UTC",
+      "yyyy-MM-dd"
+    );
+    const endDateStr = plan.endDate?.toISOString().slice(0, 10);
+    if (!endDateStr || todayInPlanTz > endDateStr) return null;
 
     return plan;
   } catch {
@@ -64,33 +69,75 @@ export async function findActivePlan(userId, db = prisma) {
   }
 }
 
+export function isPlanInEffectOnDate(plan, dateString) {
+  if (!plan) return false;
+
+  const tz = plan.timezone || "UTC";
+
+  // Check scheduled coverage [startDate, endDate]
+  const startDateStr = plan.startDate
+    ? formatInTimeZone(plan.startDate, tz, "yyyy-MM-dd")
+    : null;
+  const endDateStr = plan.endDate
+    ? formatInTimeZone(plan.endDate, tz, "yyyy-MM-dd")
+    : null;
+  if (startDateStr && dateString < startDateStr) return false;
+  if (endDateStr && dateString > endDateStr) return false;
+
+  // If the plan has an activation timestamp, it was not in effect before that date in its timezone
+  if (plan.activatedAt) {
+    const activatedDateStr = formatInTimeZone(plan.activatedAt, tz, "yyyy-MM-dd");
+    if (dateString < activatedDateStr) return false;
+  } else if (plan.status !== "ACTIVE") {
+    // A historical plan without activatedAt was never in effect
+    return false;
+  }
+
+  // If the plan ended, it was not in effect after its termination date in its timezone
+  if (plan.endedAt) {
+    const endedDateStr = formatInTimeZone(plan.endedAt, tz, "yyyy-MM-dd");
+    if (dateString > endedDateStr) return false;
+  }
+
+  return true;
+}
+
 export async function findPlanForDate(userId, dateString, db = prisma) {
   try {
     const targetDate = new Date(`${dateString}T00:00:00.000Z`);
 
-    // 1. Check if user has an ACTIVE plan covering this date
-    const activePlan = await db.plan.findFirst({
+    const queryArgs = {
       where: {
         userId,
-        status: "ACTIVE",
+        status: { in: ["ACTIVE", "ENDED", "SUPERSEDED"] },
         startDate: { lte: targetDate },
         endDate: { gte: targetDate },
       },
       include: planDetailsInclude,
-    });
-    if (activePlan) return activePlan;
+      orderBy: [
+        { activatedAt: "desc" },
+        { createdAt: "desc" },
+      ],
+    };
 
-    // 2. Otherwise find historical (ENDED/SUPERSEDED) plan covering this date
-    return await db.plan.findFirst({
-      where: {
-        userId,
-        status: { in: ["ENDED", "SUPERSEDED"] },
-        startDate: { lte: targetDate },
-        endDate: { gte: targetDate },
-      },
-      include: planDetailsInclude,
-      orderBy: { endedAt: "desc" },
-    });
+    let candidates = [];
+    if (typeof db.plan?.findMany === "function") {
+      candidates = await db.plan.findMany(queryArgs);
+    } else if (typeof db.plan?.findFirst === "function") {
+      const plan = await db.plan.findFirst(queryArgs);
+      if (plan) candidates = [plan];
+    }
+
+    if (!candidates.length) return null;
+
+    const inEffectPlans = candidates.filter((plan) =>
+      isPlanInEffectOnDate(plan, dateString)
+    );
+
+    if (!inEffectPlans.length) return null;
+
+    const activePlan = inEffectPlans.find((p) => p.status === "ACTIVE");
+    return activePlan || inEffectPlans[0];
   } catch (cause) {
     const error = new databaseError("Database error occurred while finding plan for date.");
     error.cause = cause;
@@ -226,9 +273,10 @@ export async function discardOwnedDraftPlan(userId, planId, db = prisma) {
         throw new PlanStatusConflictError("Only a draft plan can be discarded.", "PLAN_NOT_DRAFT");
       }
 
+      const now = new Date();
       return tx.plan.update({
         where: { id: plan.id },
-        data: { status: "DISCARDED" },
+        data: { status: "DISCARDED", endedAt: now },
         include: planDetailsInclude,
       });
     }, { isolationLevel: "ReadCommitted", maxWait: 5000, timeout: 15000 });
@@ -468,23 +516,25 @@ export async function expireOverduePlans(asOfDate = new Date(), db = prisma) {
   try {
     return await db.$transaction(async (tx) => {
       // Date-only plan boundaries are stored at UTC midnight. A plan remains
-      // valid through end_date and expires once the next UTC date begins.
+      // valid through end_date in its local timezone and expires once the next
+      // local calendar date in its timezone begins.
       const discardedDraftsCount = await tx.$executeRaw`
         UPDATE plans
         SET status = 'DISCARDED'::"PlanStatus",
+            ended_at = NOW(),
             updated_at = NOW()
         WHERE status = 'DRAFT'::"PlanStatus"
-          AND (end_date AT TIME ZONE 'UTC')::date < (${asOfDate}::timestamptz AT TIME ZONE 'UTC')::date
+          AND end_date < (${asOfDate}::timestamptz AT TIME ZONE COALESCE(plans.timezone, 'UTC'))::date
       `;
 
-      // Mark overdue active plans as ENDED with the UTC expiration boundary.
+      // Mark overdue active plans as ENDED with the plan-timezone expiration boundary.
       const endedActivePlansCount = await tx.$executeRaw`
         UPDATE plans
         SET status = 'ENDED'::"PlanStatus",
-            ended_at = end_date + INTERVAL '1 day',
+            ended_at = ((end_date + INTERVAL '1 day')::date)::timestamp AT TIME ZONE COALESCE(plans.timezone, 'UTC'),
             updated_at = NOW()
         WHERE status = 'ACTIVE'::"PlanStatus"
-          AND (end_date AT TIME ZONE 'UTC')::date < (${asOfDate}::timestamptz AT TIME ZONE 'UTC')::date
+          AND end_date < (${asOfDate}::timestamptz AT TIME ZONE COALESCE(plans.timezone, 'UTC'))::date
       `;
 
       return {
@@ -501,7 +551,7 @@ export async function expireOverduePlans(asOfDate = new Date(), db = prisma) {
 }
 
 export async function cascadeGoalStatusChangeToPlans(userId, goalId, tx) {
-  
+  if (!tx?.plan || typeof tx.plan.updateMany !== "function") return;
   const now = new Date();
   await tx.plan.updateMany({
     where: { userId, goalId, status: "ACTIVE" },
@@ -510,12 +560,12 @@ export async function cascadeGoalStatusChangeToPlans(userId, goalId, tx) {
 
   await tx.plan.updateMany({
     where: { userId, goalId, status: "DRAFT" },
-    data: { status: "DISCARDED" },
+    data: { status: "DISCARDED", endedAt: now },
   });
 }
 
 export async function cascadeProfileDeletionToPlans(userId, tx) {
-  
+  if (!tx?.plan || typeof tx.plan.updateMany !== "function") return;
   const now = new Date();
   await tx.plan.updateMany({
     where: { userId, status: "ACTIVE" },
@@ -524,7 +574,7 @@ export async function cascadeProfileDeletionToPlans(userId, tx) {
 
   await tx.plan.updateMany({
     where: { userId, status: "DRAFT" },
-    data: { status: "DISCARDED" },
+    data: { status: "DISCARDED", endedAt: now },
   });
 }
 
