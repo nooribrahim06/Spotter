@@ -551,7 +551,7 @@ export async function expireOverduePlans(asOfDate = new Date(), db = prisma) {
 }
 
 export async function cascadeGoalStatusChangeToPlans(userId, goalId, tx) {
-  if (!tx?.plan || typeof tx.plan.updateMany !== "function") return;
+  
   const now = new Date();
   await tx.plan.updateMany({
     where: { userId, goalId, status: "ACTIVE" },
@@ -565,7 +565,7 @@ export async function cascadeGoalStatusChangeToPlans(userId, goalId, tx) {
 }
 
 export async function cascadeProfileDeletionToPlans(userId, tx) {
-  if (!tx?.plan || typeof tx.plan.updateMany !== "function") return;
+  
   const now = new Date();
   await tx.plan.updateMany({
     where: { userId, status: "ACTIVE" },
