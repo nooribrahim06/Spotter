@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { formatInTimeZone } from "date-fns-tz";
 import * as planRepository from "./plan.repository.js";
 import { evaluatePlanReadiness, checkPlanActivation } from "./plan.rules.js";
 import { calculateFitnessTargets } from "../profiles/profile.targets.js";
@@ -67,7 +68,16 @@ export async function getPlanById(userId, planId, db) {
 }
 
 export async function getActivePlan(userId, db) {
-  return planRepository.findActivePlan(userId, db);
+  const plan = await planRepository.findActivePlan(userId, db);
+  if (!plan) return null;
+
+  const today = formatInTimeZone(new Date(), plan.timezone, "yyyy-MM-dd");
+  const end = plan.endDate?.toISOString().slice(0, 10);
+  if (end && today > end) {
+    return null;
+  }
+
+  return plan;
 }
 
 export async function getPlanContext(userId, db) {

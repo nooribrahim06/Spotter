@@ -1,9 +1,11 @@
 import { prisma } from "../../lib/prisma.js";
 import {
   ActiveGoalExistsError,
+  AppError,
   databaseError,
   InvalidGoalStateError,
 } from "../../middlewares/errorHandling.js";
+import { cascadeGoalStatusChangeToPlans } from "../plans/plan.repository.js";
 
 // ============ Find the goal created during onboarding ============
 // isOnboardingGoal is not the current status. it is an internal marker that
@@ -174,9 +176,12 @@ export async function updateGoal(goalId, userId, updatedData, db = prisma) {
 }
 // ============ Complete a Goal ============
 export async function completeGoal(goalId, userId, db = prisma) {
-  let goals;
-  try {
-    goals = await db.goal.updateManyAndReturn({
+  const completeInsideTransaction = async (tx) => {
+    if (typeof tx.$queryRaw === "function") {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+    }
+
+    const goals = await tx.goal.updateManyAndReturn({
       where: {
         id: goalId,
         userId,
@@ -187,21 +192,43 @@ export async function completeGoal(goalId, userId, db = prisma) {
         completedAt: new Date(),
       },
     });
-  } catch {
-    throw new databaseError("Database error occurred while completing the goal.");
-  }
 
-  if (!goals[0]) {
-    throw new InvalidGoalStateError("Only an active goal can be completed.");
-  }
+    if (!goals[0]) {
+      throw new InvalidGoalStateError("Only an active goal can be completed.");
+    }
 
-  return goals[0];
+    if (tx.plan) {
+      await cascadeGoalStatusChangeToPlans(userId, goalId, tx);
+    }
+
+    return goals[0];
+  };
+
+  try {
+    if (typeof db.$transaction === "function") {
+      return await db.$transaction(completeInsideTransaction, {
+        isolationLevel: "ReadCommitted",
+        maxWait: 5000,
+        timeout: 15000,
+      });
+    }
+    return await completeInsideTransaction(db);
+  } catch (cause) {
+    if (cause instanceof AppError) throw cause;
+    const error = new databaseError("Database error occurred while completing the goal.");
+    error.cause = cause;
+    throw error;
+  }
 }
+
 // ============ Cancel a Goal ============
 export async function cancelGoal(goalId, userId, db = prisma) {
-  let goals;
-  try {
-    goals = await db.goal.updateManyAndReturn({
+  const cancelInsideTransaction = async (tx) => {
+    if (typeof tx.$queryRaw === "function") {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+    }
+
+    const goals = await tx.goal.updateManyAndReturn({
       where: {
         id: goalId,
         userId,
@@ -212,15 +239,33 @@ export async function cancelGoal(goalId, userId, db = prisma) {
         cancelledAt: new Date(),
       },
     });
-  } catch {
-    throw new databaseError("Database error occurred while cancelling the goal.");
-  }
 
-  if (!goals[0]) {
-    throw new InvalidGoalStateError(
-      "Only a draft or active goal can be cancelled."
-    );
-  }
+    if (!goals[0]) {
+      throw new InvalidGoalStateError(
+        "Only a draft or active goal can be cancelled."
+      );
+    }
 
-  return goals[0];
+    if (tx.plan) {
+      await cascadeGoalStatusChangeToPlans(userId, goalId, tx);
+    }
+
+    return goals[0];
+  };
+
+  try {
+    if (typeof db.$transaction === "function") {
+      return await db.$transaction(cancelInsideTransaction, {
+        isolationLevel: "ReadCommitted",
+        maxWait: 5000,
+        timeout: 15000,
+      });
+    }
+    return await cancelInsideTransaction(db);
+  } catch (cause) {
+    if (cause instanceof AppError) throw cause;
+    const error = new databaseError("Database error occurred while cancelling the goal.");
+    error.cause = cause;
+    throw error;
+  }
 }
