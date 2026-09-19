@@ -479,4 +479,18 @@ export async function cascadeGoalStatusChangeToPlans(userId, goalId, tx) {
   });
 }
 
+export async function cascadeProfileDeletionToPlans(userId, tx) {
+  const now = new Date();
+  await tx.plan.updateMany({
+    where: { userId, status: "ACTIVE" },
+    data: { status: "ENDED", endedAt: now },
+  });
+
+  await tx.plan.updateMany({
+    where: { userId, status: "DRAFT" },
+    data: { status: "DISCARDED" },
+  });
+}
+
+
 

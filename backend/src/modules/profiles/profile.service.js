@@ -17,6 +17,7 @@ import {
 import { findUserPasswordHashById } from "../users/user.repository.js";
 import * as profileRepository from "./profile.repository.js";
 import { calculateFitnessTargets } from "./profile.targets.js";
+import { cascadeProfileDeletionToPlans } from "../plans/plan.repository.js";
 import {
   serializeBodyProfile,
   serializeBodyProfileUpdate,
@@ -246,6 +247,9 @@ export async function deleteMyBodyProfile(userId, password) {
       },
       data: { status: "CANCELLED" },
     });
+    if (tx.plan) {
+      await cascadeProfileDeletionToPlans(userId, tx);
+    }
     await tx.user.update({
       where: { id: userId },
       data: {
