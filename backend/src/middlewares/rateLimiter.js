@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 // Every API endpoint gets this shared safety ceiling. Sensitive authentication
 // actions also keep their stricter, action-specific limiters below.
@@ -72,3 +72,16 @@ export const loginRateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
+
+export const planGenerationRateLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  limit: 1, // 1 plan generation per day per user
+  keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip),
+  message: {
+    error: "You can only generate 1 plan per day. Please try again tomorrow.",
+    code: "TOO_MANY_REQUESTS",
+  },
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+

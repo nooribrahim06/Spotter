@@ -3,6 +3,7 @@ import { authenticateToken } from "../../middlewares/auth.middleware.js";
 import { validateQuery, validateBody, validateParams } from "../../middlewares/validatebody.js";
 import * as controller from "./plan.controller.js";
 import { planContextQuerySchema, generatePlanSchema, planListQuerySchema, planIdParamSchema, activatePlanSchema } from "./plan.validate.js";
+import { planGenerationRateLimiter } from "../../middlewares/rateLimiter.js";
 
 export const planRoutes = express.Router();
 
@@ -50,6 +51,7 @@ planRoutes.get(
 // POST /api/plans/generate
 planRoutes.post(
   "/generate",
+  planGenerationRateLimiter,
   validateBody(generatePlanSchema),
   controller.generatePlan
 );
