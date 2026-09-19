@@ -7,6 +7,7 @@ import {
   PlanDraftConflictError,
   PlanNotFoundError,
   PlanActivationConflictError,
+  PlanContentInvalidError,
 } from "../../middlewares/errorHandling.js";
 import { findCompatibleTemplate } from "./planTemplate.repository.js";
 import { buildPlanGenerationContext } from "./plan.context.js";
@@ -24,14 +25,14 @@ export async function activatePlan(userId, planId, input, db) {
 
   // 2. Check today's user context and the selected catalog records.
   const source = await planRepository.getPlanGenerationSourceData(userId, db);
-  const targets = checkPlanActivation(plan, source);
-  const catalog = await planRepository.loadActivationCatalog(userId, plan, db);
-  validateGeneratedPlanForContext({
-    generatedPlan: plan,
-    source,
-    toolResults: catalog,
-    validationContext: prepareGeneratedPlanValidation({ source, targets }),
-  });
+  checkPlanActivation(plan, source);
+  const selectionsAvailable = await planRepository.arePlanSelectionsAvailable(userId, plan, db);
+  if (!selectionsAvailable) {
+    throw new PlanContentInvalidError([{
+      code: "PLAN_SELECTION_UNAVAILABLE",
+      message: "A selected exercise, food, recipe, or recipe ingredient is no longer available to you.",
+    }]);
+  }
 
   // 3. Switch statuses atomically. No validation callbacks enter the repository.
   return planRepository.activateOwnedPlan(userId, planId, input.expectedActivePlanId, db);

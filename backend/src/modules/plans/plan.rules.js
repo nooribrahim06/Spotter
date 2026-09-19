@@ -209,6 +209,12 @@ export function getAllowedPlanEquipment(trainingProfile) {
 }
 
 // The draft was validated when generated. Check only current activation eligibility.
+
+// this function checks actually that: 
+// 1. plan is still ready "no missing user data"
+// 2. plan is not outdated with respect to the user data that was used to generate it
+// 3. plan dates are valid
+// 4. targets are still valid with respect to the user data that was used to generate it
 export function checkPlanActivation(plan, source, now = new Date()) {
   const readiness = evaluatePlanReadiness(source);
   if (readiness.blocked) throw new PlanNotEligibleError(readiness);
@@ -223,9 +229,7 @@ export function checkPlanActivation(plan, source, now = new Date()) {
     source.trainingProfile, source.goal].some((record) => record.updatedAt > plan.createdAt)) {
     throw new PlanDraftConflictError();
   }
-  let today;
-  try { today = formatInTimeZone(now, plan.timezone, "yyyy-MM-dd"); }
-  catch { throw new PlanActivationConflictError("Set a valid timezone before activation."); }
+  const today = formatInTimeZone(now, plan.timezone, "yyyy-MM-dd");
   const start = plan.startDate?.toISOString().slice(0, 10);
   const end = plan.endDate?.toISOString().slice(0, 10);
   if (start !== today || !end || end < today) {

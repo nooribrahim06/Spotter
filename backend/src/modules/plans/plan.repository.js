@@ -55,47 +55,43 @@ export async function findActivePlan(userId, db = prisma) {
   }
 }
 
-// Hydrate only the stored selections for the existing plan rules at activation.
-// Draft saving deliberately does not do this check.
-export async function loadActivationCatalog(userId, plan, db = prisma) {
-  try {
-    const exerciseIds = new Set(), foodIds = new Set(), recipeIds = new Set();
-    for (const day of plan.days) {
-      for (const workout of day.workouts) {
-        for (const exercise of workout.exercises) exerciseIds.add(exercise.exerciseId);
-      }
-      for (const options of [day.breakfastOptions, day.lunchOptions, day.dinnerOptions, day.snackOptions]) {
-        for (const option of options ?? []) {
-          for (const item of option.items) {
-            if (item.itemType === "FOOD") foodIds.add(item.foodId);
-            else recipeIds.add(item.recipeId);
-          }
+// Activation only checks that every selected item is still usable by this user.
+export async function arePlanSelectionsAvailable(userId, plan, db = prisma) {
+  const exerciseIds = new Set();
+  const foodIds = new Set();
+  const recipeIds = new Set();
+  for (const day of plan.days) {
+    for (const workout of day.workouts) {
+      for (const exercise of workout.exercises) exerciseIds.add(exercise.exerciseId.toLowerCase());
+    }
+    for (const options of [day.breakfastOptions, day.lunchOptions, day.dinnerOptions, day.snackOptions]) {
+      for (const option of options ?? []) {
+        for (const item of option.items) {
+          if (item.itemType === "FOOD") foodIds.add(item.foodId.toLowerCase());
+          else recipeIds.add(item.recipeId.toLowerCase());
         }
       }
     }
-    const visible = { isActive: true, OR: [{ createdByUserId: null }, { createdByUserId: userId }] };
-    const exercises = await db.exercise.findMany({ where: { id: { in: [...exerciseIds] }, isActive: true } });
-    const foods = await db.food.findMany({ where: { id: { in: [...foodIds] }, ...visible } });
-    const recipes = await db.recipe.findMany({ where: {
-      id: { in: [...recipeIds] }, ...visible,
-      ingredients: { every: { food: { is: visible } } },
-    } });
-    // The shared validator expects the same numeric nutrients as catalog tools.
-    return [
-      { name: "searchExercises", result: { ok: true, items: exercises } },
-      { name: "searchFoods", result: { ok: true, items: foods.map((food) => ({
-        ...food, caloriesPer100g: Number(food.caloriesPer100g),
-        proteinGramsPer100g: Number(food.proteinGramsPer100g),
-        carbohydrateGramsPer100g: Number(food.carbohydrateGramsPer100g), fatGramsPer100g: Number(food.fatGramsPer100g),
-      })) } },
-      { name: "searchRecipes", result: { ok: true, items: recipes.map((recipe) => ({
-        ...recipe, caloriesPerServing: Number(recipe.caloriesPerServing),
-        proteinGramsPerServing: Number(recipe.proteinGramsPerServing),
-        carbohydrateGramsPerServing: Number(recipe.carbohydrateGramsPerServing), fatGramsPerServing: Number(recipe.fatGramsPerServing),
-      })) } },
-    ];
+  }
+
+  const visible = { isActive: true, OR: [{ createdByUserId: null }, { createdByUserId: userId }] };
+  try {
+    // Count unique accessible IDs; no nutrient loading or repeated plan validation.
+    const [exercises, foods, recipes] = await Promise.all([
+      exerciseIds.size ? db.exercise.count({
+        where: { id: { in: [...exerciseIds] }, isActive: true },
+      }) : 0,
+      foodIds.size ? db.food.count({
+        where: { id: { in: [...foodIds] }, ...visible },
+      }) : 0,
+      recipeIds.size ? db.recipe.count({ where: {
+        id: { in: [...recipeIds] }, ...visible,
+        ingredients: { every: { food: { is: visible } } },
+      } }) : 0,
+    ]);
+    return exercises === exerciseIds.size && foods === foodIds.size && recipes === recipeIds.size;
   } catch (cause) {
-    const error = new databaseError("Database error occurred while reading the plan catalog.");
+    const error = new databaseError("Database error occurred while checking plan item availability.");
     error.cause = cause;
     throw error;
   }
