@@ -197,10 +197,7 @@ export async function completeGoal(goalId, userId, db = prisma) {
       throw new InvalidGoalStateError("Only an active goal can be completed.");
     }
 
-    if (tx.plan) {
-      await cascadeGoalStatusChangeToPlans(userId, goalId, tx);
-    }
-
+    await cascadeGoalStatusChangeToPlans(userId, goalId, tx);
     return goals[0];
   };
 

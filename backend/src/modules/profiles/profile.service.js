@@ -247,9 +247,7 @@ export async function deleteMyBodyProfile(userId, password) {
       },
       data: { status: "CANCELLED" },
     });
-    if (tx.plan) {
-      await cascadeProfileDeletionToPlans(userId, tx);
-    }
+    await cascadeProfileDeletionToPlans(userId, tx);
     await tx.user.update({
       where: { id: userId },
       data: {
