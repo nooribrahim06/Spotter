@@ -38,6 +38,14 @@ export async function activatePlan(userId, planId, input, db) {
   return planRepository.activateOwnedPlan(userId, planId, input.expectedActivePlanId, db);
 }
 
+export async function endActivePlan(userId, planId, db) {
+  return planRepository.endOwnedActivePlan(userId, planId, db);
+}
+
+export async function discardDraftPlan(userId, planId, db) {
+  return planRepository.discardOwnedDraftPlan(userId, planId, db);
+}
+
 export async function listPlans(userId, query, db) {
   const { items, totalItems } = await planRepository.findPlans(userId, query, db);
   return {

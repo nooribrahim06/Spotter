@@ -4,7 +4,7 @@ import * as z from "zod";
 export const planContextQuerySchema = z.object({}).strict();
 
 export const planListQuerySchema = z.object({
-  status: z.enum(["DRAFT", "ACTIVE", "SUPERSEDED", "ENDED"]).optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "SUPERSEDED", "ENDED", "DISCARDED"]).optional(),
   goalId: z.string().uuid().optional(),
   page: z.coerce.number().int().min(1).max(1000000).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),

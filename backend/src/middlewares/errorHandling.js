@@ -490,3 +490,10 @@ export class PlanActivationConflictError extends AppError {
     super(message, 409, code);
   }
 }
+
+export class PlanStatusConflictError extends AppError {
+  constructor(message, code = "PLAN_STATUS_CONFLICT") {
+    super(message, 409, code);
+  }
+}
+

@@ -6,6 +6,18 @@ export async function activatePlan(req, res) {
   return res.status(200).json({ data: plan });
 }
 
+export async function endPlan(req, res) {
+  const plan = await planService.endActivePlan(req.user.id, req.validatedParams.planId);
+  res.set("Cache-Control", "no-store");
+  return res.status(200).json({ data: plan });
+}
+
+export async function discardPlan(req, res) {
+  const plan = await planService.discardDraftPlan(req.user.id, req.validatedParams.planId);
+  res.set("Cache-Control", "no-store");
+  return res.status(200).json({ data: plan });
+}
+
 export async function listPlans(req, res) {
   const result = await planService.listPlans(req.user.id, req.validatedQuery);
   res.set("Cache-Control", "no-store");

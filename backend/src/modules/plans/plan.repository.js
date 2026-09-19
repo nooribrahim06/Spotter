@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { Prisma } from "../../../generated/prisma/client.ts";
 import { prisma } from "../../lib/prisma.js";
-import { databaseError, AppError, PlanNotFoundError, PlanActivationConflictError } from "../../middlewares/errorHandling.js";
+import { databaseError, AppError, PlanNotFoundError, PlanActivationConflictError, PlanStatusConflictError } from "../../middlewares/errorHandling.js";
 
 // PostgreSQL's weekday enum is declared Monday through Sunday.
 const planDetailsInclude = {
@@ -135,6 +135,68 @@ export async function activateOwnedPlan(userId, planId, expectedActivePlanId, db
     throw error;
   }
 }
+
+export async function endOwnedActivePlan(userId, planId, db = prisma) {
+  try {
+    return await db.$transaction(async (tx) => {
+      // One user-row lock coordinates status writes with activations
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+
+      const plan = await tx.plan.findFirst({ where: { id: planId, userId }, include: planDetailsInclude });
+      if (!plan) throw new PlanNotFoundError();
+
+      // Idempotent return if already ended
+      if (plan.status === "ENDED") return plan;
+
+      if (plan.status !== "ACTIVE") {
+        throw new PlanStatusConflictError("Only an active plan can be ended.", "PLAN_NOT_ACTIVE");
+      }
+
+      const now = new Date();
+      return tx.plan.update({
+        where: { id: plan.id },
+        data: { status: "ENDED", endedAt: now },
+        include: planDetailsInclude,
+      });
+    }, { isolationLevel: "ReadCommitted", maxWait: 5000, timeout: 15000 });
+  } catch (cause) {
+    if (cause instanceof AppError) throw cause;
+    const error = new databaseError("Database error occurred while ending the plan.");
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export async function discardOwnedDraftPlan(userId, planId, db = prisma) {
+  try {
+    return await db.$transaction(async (tx) => {
+      // One user-row lock coordinates status writes with activations
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+
+      const plan = await tx.plan.findFirst({ where: { id: planId, userId }, include: planDetailsInclude });
+      if (!plan) throw new PlanNotFoundError();
+
+      // Idempotent return if already discarded
+      if (plan.status === "DISCARDED") return plan;
+
+      if (plan.status !== "DRAFT") {
+        throw new PlanStatusConflictError("Only a draft plan can be discarded.", "PLAN_NOT_DRAFT");
+      }
+
+      return tx.plan.update({
+        where: { id: plan.id },
+        data: { status: "DISCARDED" },
+        include: planDetailsInclude,
+      });
+    }, { isolationLevel: "ReadCommitted", maxWait: 5000, timeout: 15000 });
+  } catch (cause) {
+    if (cause instanceof AppError) throw cause;
+    const error = new databaseError("Database error occurred while discarding the draft plan.");
+    error.cause = cause;
+    throw error;
+  }
+}
+
 
 // Keep projections separate from queries so the context contract is easy to
 // review. Account credentials and unrelated identity fields are not needed.

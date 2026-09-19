@@ -13,7 +13,19 @@ planRoutes.use(express.json({ limit: "100kb" }), authenticateToken);
 planRoutes.post("/:planId/activate",
   validateParams(planIdParamSchema),
   validateBody(activatePlanSchema),
-   controller.activatePlan);
+  controller.activatePlan);
+
+// End an active plan
+planRoutes.post("/:planId/end",
+  validateParams(planIdParamSchema),
+  validateQuery(planContextQuerySchema),
+  controller.endPlan);
+
+// Discard a draft plan
+planRoutes.post("/:planId/discard",
+  validateParams(planIdParamSchema),
+  validateQuery(planContextQuerySchema),
+  controller.discardPlan);
 // simply reyturn all plans for the user with pagination and filtering
 
 // the returend structure is { items: [plan], pagination: { page, limit, totalItems, totalPages, hasNextPage } }

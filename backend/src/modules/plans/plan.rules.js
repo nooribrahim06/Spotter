@@ -232,8 +232,11 @@ export function checkPlanActivation(plan, source, now = new Date()) {
   const today = formatInTimeZone(now, plan.timezone, "yyyy-MM-dd");
   const start = plan.startDate?.toISOString().slice(0, 10);
   const end = plan.endDate?.toISOString().slice(0, 10);
-  if (start !== today || !end || end < today) {
-    throw new PlanActivationConflictError("The plan must start today in its timezone and end today or later.", "PLAN_DATES_INVALID");
+  if (!start || today < start) {
+    throw new PlanActivationConflictError("The scheduled plan period has not started yet.", "PLAN_NOT_STARTED");
+  }
+  if (!end || today > end) {
+    throw new PlanActivationConflictError("The draft plan has passed its end date.", "PLAN_EXPIRED");
   }
   const targets = calculateFitnessTargets({
     bodyProfile: source.bodyProfile, goal: source.goal, progressEntry: source.latestProgress, asOfDate: now,
