@@ -6,6 +6,7 @@ import {
   getWorkoutById,
   getWorkoutHistory,
   updateWorkout,
+  startWorkoutFromPlan,
 } from "./workout.service.js";
 
 function privateResponse(res, statusCode, data) {
@@ -17,6 +18,14 @@ export async function createWorkoutController(req, res) {
   const workout = await createWorkout(req.user.id, req.validatedBody);
 
   return privateResponse(res, 201, workout);
+}
+
+export async function startWorkoutFromPlanController(req, res) {
+  const { workout, isExisting } = await startWorkoutFromPlan(
+    req.user.id,
+    req.validatedBody
+  );
+  return privateResponse(res, isExisting ? 200 : 201, workout);
 }
 
 export async function getActiveWorkoutController(req, res) {

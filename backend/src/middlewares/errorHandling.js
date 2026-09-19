@@ -497,3 +497,15 @@ export class PlanStatusConflictError extends AppError {
   }
 }
 
+export class PlanOccurrenceCompletedError extends AppError {
+  constructor(message = "This scheduled workout occurrence has already been completed.") {
+    super(message, 409, "PLAN_OCCURRENCE_COMPLETED");
+  }
+}
+
+export class PlanScheduleMismatchError extends AppError {
+  constructor(message = "The scheduled date does not match the active plan's schedule.") {
+    super(message, 400, "PLAN_SCHEDULE_MISMATCH");
+  }
+}
+

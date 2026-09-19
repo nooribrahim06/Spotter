@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 import { databaseError } from "../../middlewares/errorHandling.js";
 // we will handle the errors diff here to avoid rewrite the original errors in nested try catch blocks
-const workoutInclude = {
+export const workoutInclude = {
   exercises: {
     orderBy: { exerciseOrder: "asc" },
     include: { exercise: true },
@@ -216,5 +216,75 @@ export async function cancelActiveWorkout(workoutId, userId, db = prisma) {
     throw new databaseError(
       "Database error occurred while cancelling the workout."
     );
+  }
+}
+
+export async function findPlanWorkoutForUser(planWorkoutId, db = prisma) {
+  try {
+    return await db.planWorkout.findFirst({
+      where: { id: planWorkoutId },
+      include: {
+        planDay: {
+          include: { plan: true },
+        },
+      },
+    });
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while fetching prescribed workout.");
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export async function findScheduledWorkoutOccurrence(planWorkoutId, scheduledDate, db = prisma) {
+  try {
+    return await db.workout.findFirst({
+      where: {
+        sourcePlanWorkoutId: planWorkoutId,
+        scheduledDate,
+        status: { in: ["IN_PROGRESS", "COMPLETED"] },
+      },
+      include: workoutInclude,
+    });
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while checking scheduled workout occurrence.");
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export async function createWorkoutFromPlan(userId, planWorkout, scheduledDate, db = prisma) {
+  const exercises = Array.isArray(planWorkout.exercises) ? planWorkout.exercises : [];
+  try {
+    const runCreation = async (tx) => {
+      return await tx.workout.create({
+        data: {
+          userId,
+          name: planWorkout.name,
+          status: "IN_PROGRESS",
+          startedAt: new Date(),
+          sourcePlanWorkoutId: planWorkout.id,
+          scheduledDate,
+          exercises: {
+            create: exercises.map((exercise, index) => ({
+              exerciseId: exercise.exerciseId,
+              exerciseOrder: index + 1,
+              notes: exercise.notes ?? null,
+              completed: false,
+            })),
+          },
+        },
+        include: workoutInclude,
+      });
+    };
+
+    if (typeof db.$transaction === "function") {
+      return await db.$transaction(runCreation);
+    }
+    return await runCreation(db);
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while starting workout from plan.");
+    error.cause = cause;
+    throw error;
   }
 }

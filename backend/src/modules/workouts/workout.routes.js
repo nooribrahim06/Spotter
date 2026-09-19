@@ -14,6 +14,7 @@ import {
   getWorkoutByIdController,
   getWorkoutHistoryController,
   updateWorkoutController,
+  startWorkoutFromPlanController,
 } from "./workout.controller.js";
 import {
   createWorkoutSchema,
@@ -21,6 +22,7 @@ import {
   workoutActionSchema,
   workoutHistoryQuerySchema,
   workoutIdParamSchema,
+  startWorkoutFromPlanSchema,
 } from "./workout.validate.js";
 
 export const workoutRoutes = express.Router();
@@ -31,6 +33,12 @@ workoutRoutes.post(
   "/",
   validateBody(createWorkoutSchema),
   createWorkoutController
+);
+
+workoutRoutes.post(
+  "/from-plan",
+  validateBody(startWorkoutFromPlanSchema),
+  startWorkoutFromPlanController
 );
 
 workoutRoutes.get("/active", getActiveWorkoutController);

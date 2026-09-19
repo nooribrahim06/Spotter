@@ -4,7 +4,12 @@ import {
   InvalidWorkoutStateError,
   WorkoutCompletionRequiredError,
   WorkoutNotFoundError,
+  PlanNotFoundError,
+  PlanStatusConflictError,
+  PlanScheduleMismatchError,
+  PlanOccurrenceCompletedError,
 } from "../../middlewares/errorHandling.js";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   cancelActiveWorkout,
   completeActiveWorkout,
@@ -14,6 +19,9 @@ import {
   findWorkoutByIdForUser,
   findWorkoutHistory,
   updateActiveWorkoutDetails,
+  findPlanWorkoutForUser,
+  findScheduledWorkoutOccurrence,
+  createWorkoutFromPlan,
 } from "./workout.repository.js";
 import { serializeWorkout } from "./workout.serializer.js";
 
@@ -34,6 +42,46 @@ export async function createWorkout(userId, data, db) {
   // lets creation use the same safe public serializer as every workout read,
   // without making a redundant database query for an always-empty collection.
   return serializeWorkout({ ...workout, exercises: [] });
+}
+
+export async function startWorkoutFromPlan(userId, { planWorkoutId, scheduledDate }, db) {
+  const planWorkout = await findPlanWorkoutForUser(planWorkoutId, db);
+  if (!planWorkout || planWorkout.planDay?.plan?.userId !== userId) {
+    throw new PlanNotFoundError("Prescribed workout not found.");
+  }
+
+  const plan = planWorkout.planDay.plan;
+  if (plan.status !== "ACTIVE") {
+    throw new PlanStatusConflictError("Workouts can only be started from an active plan.", "PLAN_NOT_ACTIVE");
+  }
+
+  const today = formatInTimeZone(new Date(), plan.timezone, "yyyy-MM-dd");
+  const startDateStr = plan.startDate?.toISOString().slice(0, 10);
+  const endDateStr = plan.endDate?.toISOString().slice(0, 10);
+
+  if (scheduledDate < startDateStr || scheduledDate > endDateStr) {
+    throw new PlanScheduleMismatchError("Scheduled date falls outside the active plan's coverage dates.");
+  }
+  if (scheduledDate !== today) {
+    throw new PlanScheduleMismatchError("Workouts can only be started live for today's scheduled date.");
+  }
+
+  const targetDate = new Date(`${scheduledDate}T00:00:00.000Z`);
+  const existingOccurrence = await findScheduledWorkoutOccurrence(planWorkoutId, targetDate, db);
+  if (existingOccurrence) {
+    if (existingOccurrence.status === "COMPLETED") {
+      throw new PlanOccurrenceCompletedError();
+    }
+    return { workout: serializeWorkout(existingOccurrence), isExisting: true };
+  }
+
+  const activeWorkout = await findActiveWorkoutByUserId(userId, db);
+  if (activeWorkout) {
+    throw new ActiveWorkoutExistsError();
+  }
+
+  const createdWorkout = await createWorkoutFromPlan(userId, planWorkout, targetDate, db);
+  return { workout: serializeWorkout(createdWorkout), isExisting: false };
 }
 
 export async function getActiveWorkout(userId, db) {

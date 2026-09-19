@@ -69,3 +69,12 @@ export const workoutHistoryQuerySchema = z
     path: ["to"],
     message: "to must be after or equal to from.",
   });
+
+export const startWorkoutFromPlanSchema = z
+  .object({
+    planWorkoutId: z.string().uuid("Plan workout ID must be a valid UUID."),
+    scheduledDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Scheduled date must use YYYY-MM-DD format"),
+  })
+  .strict();
