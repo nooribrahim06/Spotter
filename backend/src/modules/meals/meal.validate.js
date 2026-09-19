@@ -58,6 +58,16 @@ const mealItemSchema = z.discriminatedUnion("itemType", [
   quickItemSchema,
 ]);
 
+const planSourceSchema = z
+  .object({
+    planDayId: z.string().uuid("Plan day ID must be a valid UUID."),
+    optionId: z.string().uuid("Option ID must be a valid UUID."),
+    scheduledDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Scheduled date must use YYYY-MM-DD format"),
+  })
+  .strict();
+
 const mealBodySchema = z
   .object({
     mealType: z.enum(mealTypes),
@@ -71,6 +81,7 @@ const mealBodySchema = z
       .max(1000, "Notes must be at most 1000 characters.")
       .nullable()
       .optional(),
+    planSource: planSourceSchema.optional(),
     items: z
       .array(mealItemSchema)
       .min(1, "A meal needs at least one item.")
@@ -133,5 +144,32 @@ export const listMealsQuerySchema = z
       .optional(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+
+export const logMealFromPlanSchema = z
+  .object({
+    planDayId: z.string().uuid("Plan day ID must be a valid UUID."),
+    optionId: z.string().uuid("Option ID must be a valid UUID."),
+    scheduledDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Scheduled date must use YYYY-MM-DD format"),
+    mealType: z.enum(mealTypes).optional(),
+    occurredAt: z.iso
+      .datetime({ offset: true })
+      .transform((value) => new Date(value))
+      .optional(),
+    notes: z
+      .string()
+      .trim()
+      .min(1, "Notes cannot be empty.")
+      .max(1000, "Notes must be at most 1000 characters.")
+      .nullable()
+      .optional(),
+    items: z
+      .array(mealItemSchema)
+      .min(1, "A meal needs at least one item.")
+      .max(100, "A meal cannot contain more than 100 items.")
+      .optional(),
   })
   .strict();

@@ -2,6 +2,8 @@ import {
   InvalidMealTimeError,
   MealNotFoundError,
   InvalidMealItemsError,
+  PlanNotFoundError,
+  PlanScheduleMismatchError,
 } from "../../middlewares/errorHandling.js";
 import * as mealRepository from "./meal.repository.js";
 import {
@@ -26,7 +28,72 @@ function buildMealData(input) {
     mealType: input.mealType,
     occurredAt: input.occurredAt,
     notes: input.notes ?? null,
+    sourcePlanDayId: input.planSource?.planDayId ?? null,
+    sourceMealOptionId: input.planSource?.optionId ?? null,
+    scheduledDate: input.planSource?.scheduledDate
+      ? new Date(`${input.planSource.scheduledDate}T00:00:00.000Z`)
+      : null,
   };
+}
+
+async function findAndValidatePlanMealOption(
+  userId,
+  planDayId,
+  optionId,
+  scheduledDate,
+  db
+) {
+  const planDay = await mealRepository.findPlanDayForUser(planDayId, db);
+  if (!planDay || planDay.plan?.userId !== userId) {
+    throw new PlanNotFoundError("Prescribed plan day not found.");
+  }
+  const plan = planDay.plan;
+  const startDateStr = plan.startDate?.toISOString().slice(0, 10);
+  const endDateStr = plan.endDate?.toISOString().slice(0, 10);
+  if (scheduledDate < startDateStr || scheduledDate > endDateStr) {
+    throw new PlanScheduleMismatchError(
+      "Scheduled date falls outside the plan's coverage dates."
+    );
+  }
+
+  const slots = [
+    { key: "breakfastOptions", type: "BREAKFAST" },
+    { key: "lunchOptions", type: "LUNCH" },
+    { key: "dinnerOptions", type: "DINNER" },
+    { key: "snackOptions", type: "SNACK" },
+  ];
+
+  let targetOption = null;
+  let inferredSlot = null;
+
+  for (const slot of slots) {
+    const opts = planDay[slot.key];
+    if (Array.isArray(opts)) {
+      const found = opts.find((opt) => opt.id === optionId);
+      if (found) {
+        targetOption = found;
+        inferredSlot = slot.type;
+        break;
+      }
+    }
+  }
+
+  if (!targetOption) {
+    throw new PlanNotFoundError("Prescribed meal option not found.");
+  }
+
+  return { planDay, targetOption, inferredSlot };
+}
+
+async function validatePlanSource(userId, planSource, db) {
+  if (!planSource) return;
+  await findAndValidatePlanMealOption(
+    userId,
+    planSource.planDayId,
+    planSource.optionId,
+    planSource.scheduledDate,
+    db
+  );
 }
 
 async function prepareMealItems(userId, items, db) {
@@ -92,17 +159,71 @@ export async function getMealById(userId, mealId, db) {
 }
 
 export async function createMeal(userId, input, db) {
-    // we need to check the time coming from the client 
-    // to ensure that it is not in the future, with a tolerance of 5 minutes
   assertMealTimeIsNotFuture(input.occurredAt);
-  // prepare meal items is the real logic 
-  // we need to take a snapshot of the food and recipe items at the time of the meal creation
-  // if the user cahnge the calories or nutrition of "his own" food or recipes after the meal creation 
-  // we will have the snapshots already store 
+  if (input.planSource) {
+    await validatePlanSource(userId, input.planSource, db);
+  }
   const itemRows = await prepareMealItems(userId, input.items, db);
   const meal = await mealRepository.createMeal(
     userId,
     buildMealData(input),
+    itemRows,
+    db
+  );
+  return serializeMeal(meal);
+}
+
+export async function logMealFromPlan(userId, input, db) {
+  const { targetOption, inferredSlot } = await findAndValidatePlanMealOption(
+    userId,
+    input.planDayId,
+    input.optionId,
+    input.scheduledDate,
+    db
+  );
+
+  const mealType = input.mealType || inferredSlot;
+  const occurredAt = input.occurredAt || new Date();
+  assertMealTimeIsNotFuture(occurredAt);
+
+  let itemsToPrepare = input.items;
+  if (!itemsToPrepare || itemsToPrepare.length === 0) {
+    itemsToPrepare = (targetOption.items || []).map((item) => {
+      if (item.itemType === "FOOD") {
+        return {
+          itemType: "FOOD",
+          foodId: item.foodId,
+          quantityGrams: item.quantityGrams,
+        };
+      }
+      if (item.itemType === "RECIPE") {
+        return {
+          itemType: "RECIPE",
+          recipeId: item.recipeId,
+          servings: item.servings,
+        };
+      }
+      return item;
+    });
+  }
+
+  if (!itemsToPrepare || itemsToPrepare.length === 0) {
+    throw new InvalidMealItemsError("A meal needs at least one item.");
+  }
+
+  const itemRows = await prepareMealItems(userId, itemsToPrepare, db);
+  const mealData = {
+    mealType,
+    occurredAt,
+    notes: input.notes ?? null,
+    sourcePlanDayId: input.planDayId,
+    sourceMealOptionId: input.optionId,
+    scheduledDate: new Date(`${input.scheduledDate}T00:00:00.000Z`),
+  };
+
+  const meal = await mealRepository.createMeal(
+    userId,
+    mealData,
     itemRows,
     db
   );

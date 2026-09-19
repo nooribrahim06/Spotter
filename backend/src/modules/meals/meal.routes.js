@@ -10,6 +10,7 @@ import * as controller from "./meal.controller.js";
 import {
   createMealSchema,
   listMealsQuerySchema,
+  logMealFromPlanSchema,
   mealIdParamSchema,
   replaceMealSchema,
 } from "./meal.validate.js";
@@ -37,6 +38,12 @@ mealRoutes.post(
   "/",
   validateBody(createMealSchema),
   controller.createMealController
+);
+
+mealRoutes.post(
+  "/from-plan",
+  validateBody(logMealFromPlanSchema),
+  controller.logMealFromPlanController
 );
 
 mealRoutes.put(

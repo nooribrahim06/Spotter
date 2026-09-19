@@ -30,6 +30,14 @@ export async function createMealController(req, res) {
   return privateResponse(res, 201, result);
 }
 
+export async function logMealFromPlanController(req, res) {
+  const result = await mealService.logMealFromPlan(
+    req.user.id,
+    req.validatedBody
+  );
+  return privateResponse(res, 201, result);
+}
+
 export async function replaceMealController(req, res) {
   const result = await mealService.replaceMeal(
     req.user.id,

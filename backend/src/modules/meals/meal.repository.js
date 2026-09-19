@@ -28,6 +28,9 @@ const mealSelect = {
     select: mealItemSelect,
     orderBy: { orderIndex: "asc" },
   },
+  sourcePlanDayId: true,
+  sourceMealOptionId: true,
+  scheduledDate: true,
 };
 /// this is the condition we always use to make sure the user nly see 
 // Global food and his own food 
@@ -224,3 +227,17 @@ export async function deleteOwnedMeal(mealId, userId, db = prisma) {
     );
   }
 }
+
+export async function findPlanDayForUser(planDayId, db = prisma) {
+  try {
+    return await db.planDay.findFirst({
+      where: { id: planDayId },
+      include: { plan: true },
+    });
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while fetching plan day.");
+    error.cause = cause;
+    throw error;
+  }
+}
+

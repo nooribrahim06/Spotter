@@ -56,6 +56,9 @@ export function serializeMeal(meal) {
       macrosComplete,
     },
     items,
+    sourcePlanDayId: meal.sourcePlanDayId ?? null,
+    sourceMealOptionId: meal.sourceMealOptionId ?? null,
+    scheduledDate: meal.scheduledDate ? (meal.scheduledDate.toISOString ? meal.scheduledDate.toISOString().slice(0, 10) : String(meal.scheduledDate).slice(0, 10)) : null,
     createdAt: meal.createdAt,
     updatedAt: meal.updatedAt,
   };
