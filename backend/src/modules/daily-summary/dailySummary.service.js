@@ -2,6 +2,7 @@ import { buildUtcRangeForLocalDates } from "../../helpers/localDateRange.js";
 import { DailySummaryTimezoneRequiredError } from "../../middlewares/errorHandling.js";
 import * as profileRepository from "../profiles/profile.repository.js";
 import { calculateFitnessTargets } from "../profiles/profile.targets.js";
+import * as planRepository from "../plans/plan.repository.js";
 import * as dailySummaryRepository from "./dailySummary.repository.js";
 import { buildDailySummary } from "./dailySummary.rules.js";
 
@@ -44,15 +45,46 @@ function calculateTargetsForDate(bodyProfile, activeGoal, date) {
 
 export async function getDailySummary(userId, date, timezone, db) {
   const dateRange = buildDateRange(date, timezone);
-  const [{ meals, workouts }, targetInputs] = await Promise.all([
+  const [{ meals, workouts }, targetInputs, activePlan] = await Promise.all([
     dailySummaryRepository.findDailyActivity(userId, dateRange, db),
     profileRepository.findTargetInputsForDate(userId, dateRange, db),
+    db?.plan && typeof db.plan.findFirst === "function"
+      ? planRepository.findPlanForDate(userId, date, db)
+      : null,
   ]);
-  const targets = calculateTargetsForDate(
+  const profileTargets = calculateTargetsForDate(
     targetInputs.bodyProfile,
     targetInputs.activeGoal,
     date
   );
+
+  const targets = activePlan
+    ? {
+        dailyCalories: activePlan.calorieTarget,
+        proteinGrams: activePlan.proteinTargetGrams,
+        carbohydrateGrams: activePlan.carbohydrateTargetGrams,
+        fatGrams: activePlan.fatTargetGrams,
+        source: "PLAN",
+        planId: activePlan.id,
+        planTitle: activePlan.title,
+        profileTargets: profileTargets
+          ? {
+              dailyCalories: profileTargets.dailyCalories,
+              proteinGrams: profileTargets.proteinGrams,
+              carbohydrateGrams: profileTargets.carbohydrateGrams,
+              fatGrams: profileTargets.fatGrams,
+            }
+          : null,
+        calculatorVersion: profileTargets?.calculatorVersion ?? null,
+        basedOn: profileTargets?.basedOn ?? null,
+        disclaimer: profileTargets?.disclaimer ?? null,
+      }
+    : profileTargets
+    ? {
+        ...profileTargets,
+        source: "PROFILE",
+      }
+    : null;
 
   return buildDailySummary({ date, meals, workouts, targets });
 }

@@ -80,9 +80,13 @@ export function buildDailySummary({ date, meals, workouts, targets }) {
     },
     targetContext: targets
       ? {
-          calculatorVersion: targets.calculatorVersion,
-          basedOn: targets.basedOn,
-          disclaimer: targets.disclaimer,
+          source: targets.source || "PROFILE",
+          planId: targets.planId ?? null,
+          planTitle: targets.planTitle ?? null,
+          profileTargets: targets.profileTargets ?? null,
+          calculatorVersion: targets.calculatorVersion ?? null,
+          basedOn: targets.basedOn ?? null,
+          disclaimer: targets.disclaimer ?? null,
         }
       : null,
   };
