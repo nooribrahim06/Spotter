@@ -14,6 +14,7 @@
     "test:profiles-db": "node --test integration/profiles.js",
     "test:plans-db": "node --test integration/plan-drafts.js",
     "worker:email": "node src/workers/email.worker.js",
+    "worker:plans": "node src/workers/plan.worker.js",
     "seed:recipes": "prisma generate && node prisma/seed-recipes.js",
     "seed:foods": "prisma generate && node prisma/seed-food.js",
     "seed:exercises": "prisma generate && node prisma/seed-exercises.js",

@@ -420,3 +420,39 @@ export async function saveDraftIfUnchanged(input, db = prisma) {
     throw error;
   }
 }
+
+export async function expireOverduePlans(asOfDate = new Date(), db = prisma) {
+  try {
+    return await db.$transaction(async (tx) => {
+      // 1. Mark overdue drafts as DISCARDED
+      const discardedDraftsCount = await tx.$executeRaw`
+        UPDATE plans
+        SET status = 'DISCARDED'::"PlanStatus",
+            updated_at = NOW()
+        WHERE status = 'DRAFT'::"PlanStatus"
+          AND end_date < (${asOfDate}::timestamptz AT TIME ZONE timezone)::date
+      `;
+
+      // 2. Mark overdue active plans as ENDED with boundary timestamp
+      const endedActivePlansCount = await tx.$executeRaw`
+        UPDATE plans
+        SET status = 'ENDED'::"PlanStatus",
+            ended_at = (end_date + 1 + TIME '00:00:00') AT TIME ZONE timezone,
+            updated_at = NOW()
+        WHERE status = 'ACTIVE'::"PlanStatus"
+          AND end_date < (${asOfDate}::timestamptz AT TIME ZONE timezone)::date
+      `;
+
+      return {
+        discardedDraftsCount: Number(discardedDraftsCount),
+        endedActivePlansCount: Number(endedActivePlansCount),
+      };
+    }, { isolationLevel: "ReadCommitted", maxWait: 5000, timeout: 30000 });
+  } catch (cause) {
+    if (cause instanceof AppError) throw cause;
+    const error = new databaseError("Database error occurred while expiring overdue plans.");
+    error.cause = cause;
+    throw error;
+  }
+}
+
