@@ -30,6 +30,12 @@ export async function getActivePlan(req, res) {
   return res.status(200).json({ data: result });
 }
 
+export async function getDailySchedule(req, res) {
+  const result = await planService.getDailySchedule(req.user.id, req.validatedQuery.date);
+  res.set("Cache-Control", "no-store");
+  return res.status(200).json({ data: result });
+}
+
 export async function getPlanById(req, res) {
   const result = await planService.getPlanById(req.user.id, req.validatedParams.planId);
   res.set("Cache-Control", "no-store");

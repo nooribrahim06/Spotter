@@ -64,6 +64,40 @@ export async function findActivePlan(userId, db = prisma) {
   }
 }
 
+export async function findPlanForDate(userId, dateString, db = prisma) {
+  try {
+    const targetDate = new Date(`${dateString}T00:00:00.000Z`);
+
+    // 1. Check if user has an ACTIVE plan covering this date
+    const activePlan = await db.plan.findFirst({
+      where: {
+        userId,
+        status: "ACTIVE",
+        startDate: { lte: targetDate },
+        endDate: { gte: targetDate },
+      },
+      include: planDetailsInclude,
+    });
+    if (activePlan) return activePlan;
+
+    // 2. Otherwise find historical (ENDED/SUPERSEDED) plan covering this date
+    return await db.plan.findFirst({
+      where: {
+        userId,
+        status: { in: ["ENDED", "SUPERSEDED"] },
+        startDate: { lte: targetDate },
+        endDate: { gte: targetDate },
+      },
+      include: planDetailsInclude,
+      orderBy: { endedAt: "desc" },
+    });
+  } catch (cause) {
+    const error = new databaseError("Database error occurred while finding plan for date.");
+    error.cause = cause;
+    throw error;
+  }
+}
+
 // Activation only checks that every selected item is still usable by this user.
 export async function arePlanSelectionsAvailable(userId, plan, db = prisma) {
   const exerciseIds = new Set();
@@ -467,6 +501,7 @@ export async function expireOverduePlans(asOfDate = new Date(), db = prisma) {
 }
 
 export async function cascadeGoalStatusChangeToPlans(userId, goalId, tx) {
+
   const now = new Date();
   await tx.plan.updateMany({
     where: { userId, goalId, status: "ACTIVE" },
@@ -480,6 +515,7 @@ export async function cascadeGoalStatusChangeToPlans(userId, goalId, tx) {
 }
 
 export async function cascadeProfileDeletionToPlans(userId, tx) {
+
   const now = new Date();
   await tx.plan.updateMany({
     where: { userId, status: "ACTIVE" },

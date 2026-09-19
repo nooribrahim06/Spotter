@@ -247,3 +247,20 @@ export function checkPlanActivation(plan, source, now = new Date()) {
   }
   return targets;
 }
+
+/**
+ * Resolves the uppercase DayOfWeek (MONDAY..SUNDAY) for a local calendar date
+ * in the specified IANA timezone.
+ */
+export function getWeekdayForDate(dateString, timezone) {
+  const date = new Date(`${dateString}T12:00:00.000Z`);
+  return formatInTimeZone(date, timezone, "EEEE").toUpperCase();
+}
+
+/**
+ * Extracts the matching PlanDay from a plan's days array for a given weekday.
+ */
+export function getPlanDayForWeekday(plan, weekday) {
+  if (!plan?.days) return null;
+  return plan.days.find((day) => day.dayOfWeek === weekday) ?? null;
+}

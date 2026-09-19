@@ -46,3 +46,9 @@ export const generatePlanSchema = z
       });
     }
   });
+
+export const planScheduleQuerySchema = z
+  .object({
+    date: localDateSchema,
+  })
+  .strict();

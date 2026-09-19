@@ -2,7 +2,7 @@ import express from "express";
 import { authenticateToken } from "../../middlewares/auth.middleware.js";
 import { validateQuery, validateBody, validateParams } from "../../middlewares/validatebody.js";
 import * as controller from "./plan.controller.js";
-import { planContextQuerySchema, generatePlanSchema, planListQuerySchema, planIdParamSchema, activatePlanSchema } from "./plan.validate.js";
+import { planContextQuerySchema, generatePlanSchema, planListQuerySchema, planIdParamSchema, activatePlanSchema, planScheduleQuerySchema } from "./plan.validate.js";
 import { planGenerationRateLimiter } from "../../middlewares/rateLimiter.js";
 
 export const planRoutes = express.Router();
@@ -54,6 +54,13 @@ planRoutes.post(
   planGenerationRateLimiter,
   validateBody(generatePlanSchema),
   controller.generatePlan
+);
+
+// GET /api/plans/schedule?date=YYYY-MM-DD
+planRoutes.get(
+  "/schedule",
+  validateQuery(planScheduleQuerySchema),
+  controller.getDailySchedule
 );
 
 // Static paths above must take precedence over a plan ID.

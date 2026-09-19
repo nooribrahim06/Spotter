@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { formatInTimeZone } from "date-fns-tz";
 import * as planRepository from "./plan.repository.js";
-import { evaluatePlanReadiness, checkPlanActivation } from "./plan.rules.js";
+import { evaluatePlanReadiness, checkPlanActivation, getWeekdayForDate, getPlanDayForWeekday } from "./plan.rules.js";
 import { calculateFitnessTargets } from "../profiles/profile.targets.js";
 import {
   InvalidAccessTokenError,
@@ -79,6 +79,27 @@ export async function getActivePlan(userId, db) {
   }
 
   return serializePlan(plan);
+}
+
+export async function getDailySchedule(userId, dateString, db) {
+  const plan = await planRepository.findPlanForDate(userId, dateString, db);
+  if (!plan) {
+    return { plan: null, day: null };
+  }
+
+  const weekday = getWeekdayForDate(dateString, plan.timezone);
+  const serializedPlan = serializePlan(plan);
+  const day = getPlanDayForWeekday(serializedPlan, weekday);
+
+  return {
+    plan: {
+      id: plan.id,
+      title: plan.title,
+      timezone: plan.timezone,
+      status: plan.status,
+    },
+    day,
+  };
 }
 
 export async function getPlanContext(userId, db) {
