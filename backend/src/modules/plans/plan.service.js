@@ -15,6 +15,7 @@ import { buildPlanGenerationContext } from "./plan.context.js";
 import { createPlanTools } from "./plans-generation/plan.tools.js";
 import { generatePlanWithAI } from "./plan.generation.js";
 import { prepareGeneratedPlanValidation, validateGeneratedPlanForContext } from "./plans-generation/plan-generated.rules.js";
+import { serializePlan } from "./plan.serializer.js";
 
 export async function activatePlan(userId, planId, input, db) {
   // 1. Load the reviewed plan. A repeated activation is already complete.
@@ -64,7 +65,7 @@ export async function listPlans(userId, query, db) {
 export async function getPlanById(userId, planId, db) {
   const plan = await planRepository.findOwnedPlanById(userId, planId, db);
   if (!plan) throw new PlanNotFoundError();
-  return plan;
+  return serializePlan(plan);
 }
 
 export async function getActivePlan(userId, db) {
@@ -77,7 +78,7 @@ export async function getActivePlan(userId, db) {
     return null;
   }
 
-  return plan;
+  return serializePlan(plan);
 }
 
 export async function getPlanContext(userId, db) {
@@ -156,8 +157,15 @@ export async function generatePlan(userId, input, db) {
     validationContext, // this is what we prepared above before the AI call, not the AI's output
   });
 
-  return persistGeneratedDraft({ userId, source, targets, template, input,
-    plan: validated.plan }, db);
+  return persistGeneratedDraft({
+    userId,
+    source,
+    targets,
+    template,
+    input,
+    plan: validated.plan,
+    catalog: validated.catalog,
+  }, db);
 }
 
 // The repository owns locks/transactions; the service owns public conflict errors.
@@ -167,12 +175,111 @@ export async function persistGeneratedDraft(context, db) {
   return result.plan;
 }
 
-function addMealOptionIds(options) {
-  return options?.map((option) => ({ ...option, id: randomUUID() })) ?? null;
+function roundTwoDecimals(val) {
+  return typeof val === "number" && Number.isFinite(val) ? Math.round(val * 100) / 100 : null;
 }
 
-// Map the already-validated proposal to draft fields. No catalog checks here.
-export function buildDraftInput({ userId, source, targets, template, input, plan }) {
+function snapshotMealOption(option, catalog) {
+  if (!option) return null;
+  let optionCalories = 0;
+  let optionProtein = 0;
+  let optionCarbs = 0;
+  let optionFat = 0;
+  let hasNutrition = false;
+
+  const items = option.items?.map((item) => {
+    const isFood = item.itemType === "FOOD";
+    const id = isFood ? item.foodId : item.recipeId;
+    const candidate = catalog
+      ? (isFood ? catalog.foods.get(id?.toLowerCase()) : catalog.recipes.get(id?.toLowerCase()))
+      : null;
+
+    let calories = item.calories ?? null;
+    let proteinGrams = item.proteinGrams ?? null;
+    let carbohydrateGrams = item.carbohydrateGrams ?? null;
+    let fatGrams = item.fatGrams ?? null;
+    const itemName = item.itemName || item.name || candidate?.nameEn || candidate?.name || candidate?.nameAr || null;
+
+    if (candidate) {
+      if (isFood && Number.isFinite(item.quantityGrams)) {
+        const factor = Number(item.quantityGrams) / 100;
+        if (candidate.caloriesPer100g != null) calories = roundTwoDecimals(Number(candidate.caloriesPer100g) * factor);
+        if (candidate.proteinGramsPer100g != null) proteinGrams = roundTwoDecimals(Number(candidate.proteinGramsPer100g) * factor);
+        if (candidate.carbohydrateGramsPer100g != null) carbohydrateGrams = roundTwoDecimals(Number(candidate.carbohydrateGramsPer100g) * factor);
+        if (candidate.fatGramsPer100g != null) fatGrams = roundTwoDecimals(Number(candidate.fatGramsPer100g) * factor);
+      } else if (!isFood && Number.isFinite(item.servings)) {
+        const factor = Number(item.servings);
+        if (candidate.caloriesPerServing != null) calories = roundTwoDecimals(Number(candidate.caloriesPerServing) * factor);
+        if (candidate.proteinGramsPerServing != null) proteinGrams = roundTwoDecimals(Number(candidate.proteinGramsPerServing) * factor);
+        if (candidate.carbohydrateGramsPerServing != null) carbohydrateGrams = roundTwoDecimals(Number(candidate.carbohydrateGramsPerServing) * factor);
+        if (candidate.fatGramsPerServing != null) fatGrams = roundTwoDecimals(Number(candidate.fatGramsPerServing) * factor);
+      }
+    }
+
+    if (calories != null) { optionCalories += calories; hasNutrition = true; }
+    if (proteinGrams != null) { optionProtein += proteinGrams; hasNutrition = true; }
+    if (carbohydrateGrams != null) { optionCarbs += carbohydrateGrams; hasNutrition = true; }
+    if (fatGrams != null) { optionFat += fatGrams; hasNutrition = true; }
+
+    const itemSnapshot = { ...item };
+    if (itemName) {
+      itemSnapshot.name = itemName;
+      itemSnapshot.itemName = itemName;
+    }
+    if (candidate?.nameEn) itemSnapshot.nameEn = candidate.nameEn;
+    if (candidate?.nameAr) itemSnapshot.nameAr = candidate.nameAr;
+    if (calories != null) itemSnapshot.calories = calories;
+    if (proteinGrams != null) itemSnapshot.proteinGrams = proteinGrams;
+    if (carbohydrateGrams != null) itemSnapshot.carbohydrateGrams = carbohydrateGrams;
+    if (fatGrams != null) itemSnapshot.fatGrams = fatGrams;
+
+    return itemSnapshot;
+  }) ?? [];
+
+  const optionSnapshot = {
+    id: option.id || randomUUID(),
+    label: option.label,
+    items,
+    note: option.note ?? null,
+  };
+
+  if (hasNutrition || option.totalNutrition) {
+    optionSnapshot.totalNutrition = option.totalNutrition || {
+      calories: roundTwoDecimals(optionCalories),
+      proteinGrams: roundTwoDecimals(optionProtein),
+      carbohydrateGrams: roundTwoDecimals(optionCarbs),
+      fatGrams: roundTwoDecimals(optionFat),
+    };
+  }
+
+  return optionSnapshot;
+}
+
+function snapshotMealOptions(options, catalog) {
+  return options?.map((opt) => snapshotMealOption(opt, catalog)) ?? null;
+}
+
+function snapshotExercises(exercises, catalog) {
+  return exercises?.map((exercise) => {
+    const candidate = catalog ? catalog.exercises.get(exercise.exerciseId?.toLowerCase()) : null;
+    const exerciseName = exercise.exerciseName || exercise.name || candidate?.name || candidate?.nameEn || null;
+    const exerciseSnapshot = { ...exercise };
+    if (exerciseName) {
+      exerciseSnapshot.name = exerciseName;
+      exerciseSnapshot.exerciseName = exerciseName;
+    }
+    const category = exercise.category || candidate?.exerciseType || candidate?.category || null;
+    if (category) exerciseSnapshot.category = category;
+    const equipment = exercise.equipment || candidate?.equipment || null;
+    if (equipment) exerciseSnapshot.equipment = equipment;
+    const primaryMuscles = exercise.primaryMuscles || candidate?.primaryMuscles || null;
+    if (primaryMuscles) exerciseSnapshot.primaryMuscles = primaryMuscles;
+    return exerciseSnapshot;
+  }) ?? [];
+}
+
+// Map the already-validated proposal to draft fields with immutable snapshots.
+export function buildDraftInput({ userId, source, targets, template, input, plan, catalog = null }) {
   return {
     userId,
     expectedContext: source,
@@ -195,10 +302,10 @@ export function buildDraftInput({ userId, source, targets, template, input, plan
       days: {
         create: plan.days.map((day) => ({
           dayOfWeek: day.dayOfWeek,
-          breakfastOptions: addMealOptionIds(day.breakfastOptions),
-          lunchOptions: addMealOptionIds(day.lunchOptions),
-          dinnerOptions: addMealOptionIds(day.dinnerOptions),
-          snackOptions: addMealOptionIds(day.snackOptions),
+          breakfastOptions: snapshotMealOptions(day.breakfastOptions, catalog),
+          lunchOptions: snapshotMealOptions(day.lunchOptions, catalog),
+          dinnerOptions: snapshotMealOptions(day.dinnerOptions, catalog),
+          snackOptions: snapshotMealOptions(day.snackOptions, catalog),
           nutritionGuidance: day.nutritionGuidance,
           notes: day.notes,
           workouts: {
@@ -207,7 +314,7 @@ export function buildDraftInput({ userId, source, targets, template, input, plan
               orderIndex,
               name: workout.name,
               estimatedDurationMinutes: workout.estimatedDurationMinutes,
-              exercises: workout.exercises,
+              exercises: snapshotExercises(workout.exercises, catalog),
               notes: workout.notes,
             })),
           },

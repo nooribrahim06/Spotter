@@ -78,7 +78,7 @@ export function prepareGeneratedPlanValidation({
   };
 }
 
-function buildAuthorizedCatalog(toolResults) {
+export function buildAuthorizedCatalog(toolResults) {
   const catalog = { exercises: new Map(), foods: new Map(), recipes: new Map() };
   const names = { searchExercises: "exercises", searchFoods: "foods", searchRecipes: "recipes" };
   for (const search of toolResults) {
@@ -268,5 +268,5 @@ export function validateGeneratedPlanForContext({
   if (issues.length) throw new PlanContentInvalidError(issues);
   // Keep calculated totals available for future persistence, but do not treat
   // guidance-only days as zero-calorie days or claim the proposal is saved.
-  return { plan: generatedPlan, dailyNutrition };
+  return { plan: generatedPlan, dailyNutrition, catalog };
 }
