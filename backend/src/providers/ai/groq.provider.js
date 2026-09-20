@@ -2,7 +2,7 @@
 //
 // This provider:
 // - converts messages
-// - converts tool definitions
+// - uses the search definition as a strict output schema
 // - converts JSON Schema into Groq Structured Outputs format
 // - sends requests through the shared Groq client
 // - translates Groq/provider failures into Spotter AppErrors
@@ -14,6 +14,7 @@
 // - apply Spotter business rules
 // - save plans
 
+import { randomUUID } from "node:crypto";
 import { APIConnectionTimeoutError, APIConnectionError } from "groq-sdk";
 import groq from "../../lib/groq.js";
 import { env } from "../../config/env.js";
@@ -64,26 +65,15 @@ export function displayGroqResponse(stage, { model, attempt, response, data, err
   }, { depth: null, maxArrayLength: null, maxStringLength: null, colors: false });
 }
 
-async function requestGroq(stage, body, options, retryMalformedToolCall = false) {
-  for (let attempt = 1; ; attempt++) {
-    const startedAt = Date.now();
-    try {
-      const { data, response } = await groq.chat.completions.create(body, options).withResponse();
-      displayGroqResponse(stage, { model: body.model, attempt, data, response, elapsedMs: Date.now() - startedAt });
-      return data;
-    } catch (error) {
-      displayGroqResponse(stage, { model: body.model, attempt, error, elapsedMs: Date.now() - startedAt });
-      const code = error?.error?.error?.code ?? error?.error?.code ?? error?.code;
-      // Only retry Groq's rejected tool output, before any catalog tool ran.
-      // Never repair/execute failed_generation or retry rate limits/auth failures.
-      if (!retryMalformedToolCall || attempt !== 1 || error?.status !== 400 || code !== "tool_use_failed") {
-        throw error;
-      }
-      body = { ...body, messages: [...body.messages, {
-        role: "user",
-        content: "The previous tool call was rejected as malformed. Call the provided tool exactly once using valid JSON arguments matching its schema. Include every required key, use null for unused nullable filters, and include no extra keys, trailing text, or trailing quotes. Do not write a tool-call wrapper inside the arguments.",
-      }] };
-    }
+async function requestGroq(stage, body, options) {
+  const startedAt = Date.now();
+  try {
+    const { data, response } = await groq.chat.completions.create(body, options).withResponse();
+    displayGroqResponse(stage, { model: body.model, attempt: 1, data, response, elapsedMs: Date.now() - startedAt });
+    return data;
+  } catch (error) {
+    displayGroqResponse(stage, { model: body.model, attempt: 1, error, elapsedMs: Date.now() - startedAt });
+    throw error;
   }
 }
 
@@ -123,30 +113,6 @@ function convertMessagesToGroqFormat(messages) {
       content: message.content,
     };
   });
-}
-
-
-/**
- * Convert Spotter tool definitions into Groq function tools.
- */
-function convertToolDefinitionsToGroqFormat(
-  toolDefinitions
-) {
-  if (!Array.isArray(toolDefinitions)) {
-    throw new TypeError(
-      "toolDefinitions must be an array."
-    );
-  }
-
-  return toolDefinitions.map((tool) => ({
-    type: "function",
-
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-    },
-  }));
 }
 
 
@@ -279,148 +245,41 @@ function translateGroqError(error) {
 ========================================================= */
 
 /**
- * Ask GPT-OSS for one tool call. For plan generation, the advertised tool
- * is a batch containing all catalog searches; the provider does not run them.
- *
- * Tools:
- * YES
- *
- * Structured output:
- * NO
+ * Request a strict JSON search batch, not a native Groq tool call.
+ * Preserve the executor's existing call shape; it still bounds and validates
+ * the raw JSON before running any search. The local ID is not a provider tool ID.
  */
-export async function sendToolCallRequestToGroq(
-  messages,
-  toolDefinitions
-) {
-  /*
-   * Conversion happens outside the try.
-   *
-   * WHY:
-   * If OUR code passes invalid messages/tool definitions,
-   * that's a programming/configuration error.
-   *
-   * It should not be disguised as:
-   * "Groq failed."
-   */
-  const groqMessages =
-    convertMessagesToGroqFormat(messages);
-
-  const groqTools =
-    convertToolDefinitionsToGroqFormat(
-      toolDefinitions
-    );
+export async function sendToolCallRequestToGroq(messages, toolDefinitions) {
+  const groqMessages = convertMessagesToGroqFormat(messages);
+  if (!Array.isArray(toolDefinitions) || toolDefinitions.length !== 1) {
+    throw new TypeError("Search generation requires exactly one batch definition.");
+  }
+  const definition = toolDefinitions[0];
+  const responseFormat = convertOutputSchemaToGroqFormat(definition.parameters);
+  responseFormat.json_schema.name = "catalog_search_batch";
 
   let response;
-
   try {
-    response =
-      await requestGroq("1: catalog tool request",
-        {
-          model: env.GROQ_TOOL_MODEL,
-
-          messages: groqMessages,
-
-          tools: groqTools,
-
-          /*
-           * This stage exists specifically because we want
-           * the model to request a catalog search.
-           */
-          tool_choice: "required",
-
-          reasoning_effort: "low",
-        },
-        {
-          timeout: REQUEST_TIMEOUT_MS,
-        },
-        true
-      );
+    response = await requestGroq("1: catalog search JSON", {
+      model: env.GROQ_TOOL_MODEL,
+      messages: groqMessages,
+      response_format: responseFormat,
+      reasoning_effort: "low",
+    }, { timeout: REQUEST_TIMEOUT_MS });
   } catch (error) {
     throw translateGroqError(error);
   }
 
-
-  /* -------------------------------------------------------
-     From here downward Groq DID respond.
-
-     So these are response/content problems,
-     not network/provider transport problems.
-  ------------------------------------------------------- */
-
   const choice = response?.choices?.[0];
-
-  if (!choice) {
-    throw new AIProviderInvalidResponseError(
-      "The AI service returned no completion choice."
-    );
+  if (choice?.finish_reason === "length") throw new AIProviderTruncatedResponseError();
+  if (choice?.message?.refusal) throw new AIProviderRefusalError();
+  if (choice?.finish_reason !== "stop" || choice.message?.role !== "assistant" ||
+      (choice.message.tool_calls != null &&
+        (!Array.isArray(choice.message.tool_calls) || choice.message.tool_calls.length > 0)) ||
+      typeof choice.message.content !== "string" || !choice.message.content.trim()) {
+    throw new AIProviderInvalidResponseError("The AI service returned no completed search JSON.");
   }
-
-
-  if (choice.finish_reason === "length") {
-    throw new AIProviderTruncatedResponseError(
-      "The AI search response was incomplete."
-    );
-  }
-
-
-  if (choice.message?.refusal) {
-    throw new AIProviderRefusalError(
-      "The AI service refused the catalog-search request."
-    );
-  }
-
-
-  const toolCalls = choice.message?.tool_calls;
-
-  // The selected model need only produce ONE function call. That call carries
-  // the whole batch. Never execute an unexpected second top-level tool call.
-  if (
-    choice.finish_reason !== "tool_calls" ||
-    choice.message?.role !== "assistant" ||
-    !Array.isArray(toolCalls) ||
-    toolCalls.length !== 1
-  ) {
-    throw new AIProviderInvalidResponseError(
-      "The AI service must return exactly one completed tool call."
-    );
-  }
-
-
-  return toolCalls.map((toolCall) => {
-    /*
-     * A valid function tool call must contain a function
-     * object and function name.
-     */
-    if (
-      toolCall?.type !== "function" ||
-      typeof toolCall.id !== "string" ||
-      toolCall.id.trim() === "" ||
-      typeof toolCall.function?.name !== "string" ||
-      !groqTools.some((tool) => tool.function.name === toolCall.function.name)
-    ) {
-      throw new AIProviderInvalidResponseError(
-        "The AI service returned an invalid tool call."
-      );
-    }
-
-
-    if (
-      typeof toolCall.function.arguments !== "string"
-    ) {
-      throw new AIProviderInvalidResponseError(
-        "The AI service returned invalid tool arguments."
-      );
-    }
-
-
-    // Preserve the raw JSON. The tool executor checks its byte limit BEFORE
-    // parsing and validates the entire batch against the search schemas.
-    return {
-      id: toolCall.id,
-      name: toolCall.function.name,
-      arguments: toolCall.function.arguments,
-    };
-  });
+  return [{ id: randomUUID(), name: definition.name, arguments: choice.message.content }];
 }
 
 

@@ -1,6 +1,6 @@
 /**
  * Same straight-line flow as the original generator:
- * ask for searches -> execute them -> ask for plan -> parse -> validate.
+ * ask for search JSON -> execute it -> ask for plan -> parse -> validate.
  *
  * The service supplies a tool session already bound to the authenticated user.
  * Tool argument validation belongs to that session, not this file.
@@ -12,7 +12,7 @@ import { PLAN_GENERATION_LIMITS, CONCRETE_MEAL_PLAN_STYLES } from "../../config/
 import {
   sendToolCallRequestToGroq,
   sendContentGenerationRequestToGroq,
-} from "../../providers/ai/groq.provider.js";
+} from "../../providers/ai/gemini.provider.js";
 import { buildPlanSearchPrompt, buildPlanGenerationPrompt } from "./plans-generation/plan.prompt.js";
 import { generatedPlanSchema } from "./plans-generation/plan.content-schema.js";
 import {
@@ -33,7 +33,7 @@ export async function generatePlanWithAI({ context, tools }) {
     tools.definitions
   );
 
-  // 3. Run the searches. The provider already guarantees one tool call;
+  // 3. Run the searches. The adapter wraps search JSON as one executor call;
   // tools.execute() parses/validates its arguments and queries the database.
   const call = toolCalls[0];
   // tools = { definitions: [...], execute: async (name, argumentsValue) => ... }.

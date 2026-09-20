@@ -25,6 +25,7 @@
     "prisma": "^7.9.1"
   },
   "dependencies": {
+    "@google/genai": "^2.23.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",

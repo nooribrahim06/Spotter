@@ -11,7 +11,7 @@ import { PLAN_TOOL_LIMITS } from "./plan.tools.schema.js";
  * It does not call a provider, execute searches, validate a plan, or save it.
  *
  * We use TWO requests:
- *   1. Search: AI makes ONE searchPlanCatalog call containing all searches.
+ *   1. Search: AI returns ONE strict JSON batch containing all searches.
  *      The backend executes the batch through createPlanTools().
  *   2. Generate: AI receives the search results and writes the weekly plan.
  *      The backend disables tools for this request.
@@ -65,8 +65,8 @@ function promptData(context) {
  * REQUEST 1: ask for searches, not the finished plan.
  *
  * context comes from buildPlanGenerationContext().
- * The adapter must also attach createPlanTools().definitions in the provider's
- * tool format. The schemas there describe the accepted arguments and enums.
+ * The adapter uses createPlanTools().definitions as the strict output schema.
+ * That schema describes the accepted arguments and enums.
  * The adapter enforces one round and the call budget; text does not enforce it.
  */
 export function buildPlanSearchPrompt({ context }) {
@@ -74,13 +74,13 @@ export function buildPlanSearchPrompt({ context }) {
     system: `${sharedInstructions}
 
 SEARCH STAGE
-Call searchPlanCatalog exactly ONCE in this response.
+Return one JSON object matching the supplied search-batch schema; do not call tools.
 Put every required search into its searches array.
 Each entry has name and arguments. Allowed search names inside that array are
 searchExercises, searchRecipes, and searchFoods; they are not separate AI tools.
 Do not put searchPlanCatalog inside its own searches array.
 Do not write the plan, simulate tool results, or invent catalog IDs.
-Tool arguments must be a JSON object with searches as its only top-level key.
+The JSON object must have searches as its only top-level key.
 Do not wrap the arguments in another name/arguments object or append trailing text.
 Include all required keys, using null for unused nullable filters.
 These are complete search entry examples (adapt values to the user):
@@ -90,7 +90,7 @@ These are complete search entry examples (adapt values to the user):
 You will not receive results until this batch is complete; do not plan searches
 that depend on another search result from this same batch.
 
-Include 1 to ${PLAN_TOOL_LIMITS.callsPerGeneration} searches inside this ONE tool call.
+Include 1 to ${PLAN_TOOL_LIMITS.callsPerGeneration} searches inside this ONE JSON object.
 Each search returns at most ${PLAN_TOOL_LIMITS.resultsPerSearch} candidates.
 Choose a small, useful mix of searches covering the whole week's needs.
 Do not issue a separate search for every meal or every day; candidates can be
@@ -191,7 +191,21 @@ a different exercise. If only one suitable exercise exists, include it once.
 Do not guess a user's lifting capacity; use weightKg: null when unknown.
 Do not include a movement that conflicts with supplied restrictions or requires
 unavailable apparatus, even if the search returned it.
+For every selected exercise, inspect its catalog trackingMetrics.
 
+Only provide a prescription field when its corresponding tracking metric
+is supported:
+
+SETS -> setsCount
+REPS -> repMin and repMax
+WEIGHT -> weightKg
+DURATION -> durationSeconds
+DISTANCE -> distanceMeters
+
+If a metric is not listed in trackingMetrics, its corresponding field MUST
+be null.
+
+Never assume every exercise uses sets.
 NUTRITION
 Use the backend's dailyCalories, proteinGrams, carbohydrateGrams, and fatGrams.
 Do not add estimated workout calories or recalculate targets.
@@ -224,7 +238,15 @@ Respect requested meal/snack counts. The schema supports breakfast, lunch,
 dinner, and snack slots only. Alternatives cannot represent extra meal events.
 Do not silently change incompatible counts or claim exact nutrition compliance
 when choices or required nutrition data are missing.
+For concrete meal plans, calculate each day's nutrition from the exact
+catalog values and selected servings/quantities before returning the plan.
 
+The complete daily meal combination must remain within the supplied
+tolerance for calories, protein, carbohydrates, and fat.
+
+Do not estimate nutrition from food names.
+Use only the nutrition values supplied by the catalog results.
+Adjust servings or gram quantities when necessary.
 OUTPUT AND LIMITATIONS
 The response schema defines required keys, nullability, enums, and size limits.
 Use null explicitly where allowed; do not omit required keys.

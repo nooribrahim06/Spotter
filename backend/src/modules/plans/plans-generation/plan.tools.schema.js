@@ -132,8 +132,8 @@ export const searchPlanCatalogToolSchema = z
   })
   .strict();
 
-// Model-independent definition: the provider adds Groq's function wrapper.
-// Only this batch tool is advertised. The three searches stay internal.
+// Model-independent executor definition: Groq uses parameters as its strict
+// output schema. The three searches stay internal to the batch executor.
 export function getPlanToolDefinitions() {
   return [
     {

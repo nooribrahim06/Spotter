@@ -52,6 +52,8 @@ const envSchema = z
 
     GROQ_TOOL_MODEL: z.string().trim().min(1),
     GROQ_GENERATION_MODEL: z.string().trim().min(1),
+    GEMINI_API_KEY: z.string().trim().min(1),
+    GEMINI_MODEL: z.string().trim().min(1),
   })
   .superRefine((env, context) => {
     if (
