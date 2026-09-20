@@ -2,9 +2,12 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
-import {fromPrisma} from 'pg-boss';
-import { boss, VERIFICATION_EMAIL_QUEUE } from "../../queues/queue.js";
-import { encryptQueueToken } from "../../queues/queueCrypto.js";
+// TEMP Vercel: restore these imports when re-enabling queued delivery.
+// import {fromPrisma} from 'pg-boss';
+// import { boss, VERIFICATION_EMAIL_QUEUE } from "../../queues/queue.js";
+// import { encryptQueueToken } from "../../queues/queueCrypto.js";
+
+import { sendVerificationEmail } from "../../emails/verificationEmail.service.js";
 
 import { createUser } from "../users/user.repository.js";
 import { findUserByEmail } from "../users/user.repository.js";
@@ -80,11 +83,10 @@ export async function signup({ email, username, password }) {
     // This is the "raw" token we'll put inside the verification link
     // that we email to the user.
     const verificationToken = createEmailVerificationToken();
-    const encryptedToken = encryptQueueToken(verificationToken.rawToken);
+    // const encryptedToken = encryptQueueToken(verificationToken.rawToken);
 
-    // The user row and the queue job are inserted in one transaction, so they
-    // commit or roll back together. The worker sends the email later; delivery
-    // itself is intentionally not part of this database transaction.
+    // TEMP Vercel: persist first, then await email outside the transaction.
+    // Queue calls are retained below for restoring worker-based delivery.
     await prisma.$transaction(async (tx) => {
     const user = await createUser({
         email: normalizedEmail,
@@ -94,6 +96,7 @@ export async function signup({ email, username, password }) {
         verifyTokenExpiresAt: verificationToken.expiresAt,
     }, tx);
 
+  /* TEMP Vercel: queued delivery disabled.
   await boss.send(
     VERIFICATION_EMAIL_QUEUE,
     {
@@ -105,7 +108,14 @@ export async function signup({ email, username, password }) {
       db: fromPrisma(tx),
     }
   );
+  */
 });
+    // If delivery fails, the unverified account remains; use resend to recover.
+    await sendVerificationEmail({
+        email: normalizedEmail,
+        username: normalizedUsername,
+        rawToken: verificationToken.rawToken,
+    });
     // 6. Return response to controller
     return {
         message: "User created successfully. Check your email to verify your account.",
@@ -123,18 +133,17 @@ export async function resendVerificationEmail(email) {
     }
 
     const verificationToken = createEmailVerificationToken();
-    const encryptedToken = encryptQueueToken(verificationToken.rawToken);
-    await prisma.$transaction(async (tx) => {
+    // const encryptedToken = encryptQueueToken(verificationToken.rawToken);
+    const updatedCount = await prisma.$transaction(async (tx) => {
         const updatedCount = await replaceVerificationToken({
         userId: user.id,
         verifyToken: verificationToken.hashedToken,
         verifyTokenExpiresAt: verificationToken.expiresAt,
     }, tx);
 
-    if (updatedCount === 0) {
-        return RESEND_VERIFICATION_RESPONSE;
-    }
+    if (updatedCount === 0) return 0;
 
+    /* TEMP Vercel: queued delivery disabled.
     await boss.send(
     VERIFICATION_EMAIL_QUEUE,
     {
@@ -147,8 +156,23 @@ export async function resendVerificationEmail(email) {
       db: fromPrisma(tx),
     }
   );
+    */
+    return updatedCount;
     });
 
+    if (updatedCount > 0) {
+        try {
+            await sendVerificationEmail({
+                email: user.email,
+                username: user.username,
+                rawToken: verificationToken.rawToken,
+            });
+        } catch {
+            // Preserve the generic resend response even when delivery fails.
+            // No worker retry in temporary direct-delivery mode.
+            console.error("Verification email delivery failed during resend.");
+        }
+    }
     return RESEND_VERIFICATION_RESPONSE;
 }
 

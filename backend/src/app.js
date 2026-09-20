@@ -23,6 +23,8 @@ import { env } from "./config/env.js";
 import { apiRateLimiter } from "./middlewares/rateLimiter.js";
 
 export const app = express();
+// Vercel can discover src/app.js directly, without starting a listener/workers.
+export default app;
 
 app.use(cors({
   origin(requestOrigin, callback) {
