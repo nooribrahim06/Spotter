@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate",
+    "build": "prisma generate",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:sql": "node prisma/run-sql.js",
     "db:studio": "prisma studio",
-    "dev": "nodemon src/index.js",
-    "start" : "node src/index.js",
     "test": "node --test",
     "test:onboarding-db": "node --test integration/onboarding.js",
     "test:profiles-db": "node --test integration/profiles.js",
@@ -50,5 +52,8 @@
   },
   "overrides": {
     "deepmerge-ts": "8.0.2"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }
