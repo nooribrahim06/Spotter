@@ -50,6 +50,11 @@ export async function getPlanContext(req, res) {
 }
 // genrate a plan for the user based on the plan context and the plan generation rules
 export async function generatePlan(req, res) {
+  // TODO: Remove this guard once the Gemini provider is stable.
+  return res.status(503).json({
+    message: "Plan generation is currently under testing and development. This feature will be available soon.",
+  });
+
   const result = await planService.generatePlan(req.user.id, req.validatedBody);
   res.set("Cache-Control", "no-store");
   return res.status(201).json({ data: result });
