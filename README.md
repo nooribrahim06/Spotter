@@ -26,8 +26,10 @@
 <p align="center">
   <a href="#system-architecture">Architecture</a> ·
   <a href="#what-spotter-does">Features</a> ·
+  <a href="#database-design-and-relational-model">Database</a> ·
   <a href="#authentication-as-a-system">Authentication</a> ·
   <a href="#security-controls-and-owasp-guidance">Security</a> ·
+  <a href="#code-architecture">Code</a> ·
   <a href="#repository-map">Repository</a> ·
   <a href="#run-locally">Run locally</a>
 </p>
@@ -115,6 +117,162 @@ See the [signup transaction](backend/src/modules/auth/auth.service.js), [queue c
 
 **Current scope:** plan generation saves a validated draft with a locked user-context check. Owned plan reads and explicit draft activation are available, with atomic replacement of the previous active plan. See the [draft persistence contract](docs/PlanDrafts.md). AI conversation and audit-log models exist in the schema, but chat endpoints and automatic audit logging are not implemented. The daily-summary API calculates from source records; SQL triggers maintain existing summary-cache rows when installed.
 
+## Database design and relational model
+
+Spotter employs a **hybrid database architecture**: **Prisma 7** (`@prisma/adapter-pg`) manages standard application models, type-safe queries, and schema migrations, while **raw PostgreSQL 16+** handles advanced performance features — Block Range Indexes (BRIN), trigram text search (`pg_trgm`), partial unique indexes, and timezone-aware PL/pgSQL triggers.
+
+```mermaid
+flowchart TB
+    subgraph Auth["1. Auth & Session Management"]
+        Users["users\n• id (UUID, PK)\n• email, username (Unique)\n• password_hash, timezone"]
+        AuthSessions["auth_sessions\n• id (UUID, PK)\n• user_id (FK)\n• family_id, expires_at, revoked_at"]
+        RefreshTokens["refresh_tokens\n• id (UUID, PK)\n• session_id (FK)\n• token_hash (Unique)\n• replaced_by_token_id (FK)"]
+        Users -->|"1 : N"| AuthSessions
+        AuthSessions -->|"1 : N"| RefreshTokens
+    end
+
+    subgraph Profiles["2. Profiles & Health Baselines"]
+        UserProfiles["user_profiles\n• first/last name, bio\n• profile_photo_key"]
+        BodyProfiles["body_profiles\n• birth_date, height_cm\n• starting_weight_kg (immutable)\n• preferred_unit_system"]
+        HealthProfiles["health_profiles\n• health_conditions (JSONB)\n• movement_limitations (JSONB)\n• requires_professional_clearance"]
+        NutritionProfiles["nutrition_profiles\n• dietary_preferences (JSONB)\n• allergies & intolerances (JSONB)\n• meals_per_day, plan_style"]
+        TrainingProfiles["training_profiles\n• experience_level, days_per_week\n• available_equipment (JSONB)"]
+        CoachingPrefs["coaching_preferences\n• coaching_style, explanation_level\n• proactive_coaching, reminders"]
+
+        Users -->|"1 : 1"| UserProfiles
+        Users -->|"1 : 1"| BodyProfiles
+        Users -->|"1 : 1"| CoachingPrefs
+        BodyProfiles -->|"1 : 1"| HealthProfiles
+        BodyProfiles -->|"1 : 1"| NutritionProfiles
+        BodyProfiles -->|"1 : 1"| TrainingProfiles
+    end
+
+    subgraph GoalsProgress["3. Goals & Progress Tracking"]
+        Goals["goals\n• goal_type, target_weight_kg\n• status (DRAFT | ACTIVE | COMPLETED)\n• Partial Unique: 1 active per user"]
+        ProgressEntries["progress_entries\n• recorded_at (BRIN)\n• weight_kg (source of truth)\n• body_fat_percentage, muscle_mass"]
+        ProgressMeasurements["progress_measurements\n• measurement_type (14 body areas)\n• value_cm (canonical metric)"]
+
+        Users -->|"1 : N"| Goals
+        BodyProfiles -->|"1 : N"| ProgressEntries
+        Goals -.->|"optional context"| ProgressEntries
+        ProgressEntries -->|"1 : N"| ProgressMeasurements
+    end
+
+    subgraph NutritionCatalog["4. Nutrition & Recipe Catalog"]
+        Foods["foods\n• name_en, name_ar (pg_trgm GIN)\n• calories, protein, carbs, fat / 100g\n• created_by_user_id (NULL = global)"]
+        Recipes["recipes\n• servings, calories_per_serving\n• cached macro totals per serving"]
+        RecipeIngredients["recipe_ingredients\n• quantity_grams\n• order_index"]
+
+        Foods -->|"1 : N"| RecipeIngredients
+        Recipes -->|"1 : N"| RecipeIngredients
+        Users -.->|"creates (optional)"| Foods
+        Users -.->|"creates (optional)"| Recipes
+    end
+
+    subgraph MealsWorkouts["5. Logging & Activity Tracking"]
+        Meals["meals\n• occurred_at (BRIN)\n• meal_type, scheduled_date"]
+        MealItems["meal_items\n• Immutable snapshot:\n  calories, protein, carbs, fat\n• quantity_grams / servings"]
+        Workouts["workouts\n• started_at (BRIN), duration_minutes\n• status (IN_PROGRESS | COMPLETED)\n• Partial Unique: 1 per plan slot"]
+        WorkoutExercises["workout_exercises\n• sets, reps, weight_kg\n• duration_seconds, distance_meters"]
+        Exercises["exercises\n• name (pg_trgm GIN), body_part\n• equipment, gif_public_id (Cloudinary)"]
+
+        Users -->|"1 : N"| Meals
+        Meals -->|"1 : N"| MealItems
+        Foods -.->|"snapshot source"| MealItems
+        Recipes -.->|"snapshot source"| MealItems
+
+        Users -->|"1 : N"| Workouts
+        Workouts -->|"1 : N"| WorkoutExercises
+        Exercises -->|"1 : N"| WorkoutExercises
+    end
+
+    subgraph PlansMod["6. AI Plans & Orchestration"]
+        PlanTemplates["plan_templates\n• goal_type, experience_level"]
+        PlanTemplateDays["plan_template_days\n• day_number, workout_blueprint (JSONB)"]
+        Plans["plans\n• calorie/macro targets\n• Partial Unique: 1 active per user"]
+        PlanDays["plan_days\n• day_of_week, meal_options (JSONB)"]
+        PlanWorkouts["plan_workouts\n• slot, exercises (JSONB blueprint)"]
+
+        PlanTemplates -->|"1 : N"| PlanTemplateDays
+        PlanTemplates -.->|"blueprints"| Plans
+        Users -->|"1 : N"| Plans
+        Goals -->|"1 : N"| Plans
+        Plans -->|"1 : N"| PlanDays
+        PlanDays -->|"1 : N"| PlanWorkouts
+        PlanWorkouts -.->|"scheduled source"| Workouts
+        PlanDays -.->|"scheduled source"| Meals
+    end
+
+    subgraph SummaryCache["7. Rollups & Daily Cache"]
+        DailySummaries["daily_summaries\n• summary_date (BRIN)\n• consumed & burned totals\n• Materialized cache (rebuildable)"]
+        Users -->|"1 : N"| DailySummaries
+        Meals -.->|"PL/pgSQL trigger refresh"| DailySummaries
+        Workouts -.->|"PL/pgSQL trigger refresh"| DailySummaries
+    end
+
+    classDef authClass fill:#142850,stroke:#27496d,color:#ffffff
+    classDef profileClass fill:#1f4068,stroke:#162447,color:#ffffff
+    classDef goalClass fill:#0f4c75,stroke:#3282b8,color:#ffffff
+    classDef catalogClass fill:#1b262c,stroke:#0f4c75,color:#ffffff
+    classDef logClass fill:#164e63,stroke:#0891b2,color:#ffffff
+    classDef planClass fill:#1e3a5f,stroke:#41729f,color:#ffffff
+    classDef cacheClass fill:#222831,stroke:#393e46,color:#ffffff
+
+    class Users,AuthSessions,RefreshTokens authClass
+    class UserProfiles,BodyProfiles,HealthProfiles,NutritionProfiles,TrainingProfiles,CoachingPrefs profileClass
+    class Goals,ProgressEntries,ProgressMeasurements goalClass
+    class Foods,Recipes,RecipeIngredients,Exercises catalogClass
+    class Meals,MealItems,Workouts,WorkoutExercises logClass
+    class PlanTemplates,PlanTemplateDays,Plans,PlanDays,PlanWorkouts planClass
+    class DailySummaries cacheClass
+```
+
+### Domain data clusters
+
+The schema organizes persistence across seven cohesive domain contexts:
+
+| Domain cluster | Core models | Key responsibilities & design decisions |
+| --- | --- | --- |
+| **Identity & Sessions** | `User`, `AuthSession`, `RefreshToken` | Account credentials, SHA-256 verification hashes, device session families, and rotation chains (`replacedByTokenId`) with replay revocation. |
+| **Profiles & Health** | `UserProfile`, `BodyProfile`, `HealthProfile`, `NutritionProfile`, `TrainingProfile`, `CoachingPreferences` | Public display identity is isolated from private biometrics. Canonical metric storage (`height_cm`, `starting_weight_kg`), SQL `Date` birthdates (no timezone drift), and JSONB for health constraints, allergies, and equipment. |
+| **Goals & Progress** | `Goal`, `ProgressEntry`, `ProgressMeasurement` | Goal lifecycle (`DRAFT`, `ACTIVE`, `COMPLETED`, `CANCELLED`). Weight history, body composition, resting HR, and 14 standardized circumference measurements (`ProgressMeasurement`). |
+| **Nutrition & Meals** | `Food`, `Recipe`, `RecipeIngredient`, `Meal`, `MealItem` | Global verified catalogs coexist with user-created items. Recipes calculate and cache serving-level macros. Logged meals capture **immutable nutritional snapshots** (`calories`, `protein_grams`, etc.) so subsequent catalog edits never rewrite user history. |
+| **Training & Workouts** | `Exercise`, `Workout`, `WorkoutExercise` | Searchable exercise catalog with Cloudinary GIF public IDs and tracking metrics. Real-time workout tracking with ordered exercises, sets, reps, weight, duration, and distance. |
+| **AI Plans & Scheduling** | `PlanTemplate`, `PlanTemplateDay`, `Plan`, `PlanDay`, `PlanWorkout` | Two-tier architecture: reusable template blueprints guide AI generation; saved user plans are independent, prescribing day-by-day meals and workouts with strict calorie and macro targets. |
+| **Daily Summaries & Audit** | `DailySummary`, `AiConversation`, `AiMessage`, `AuditLog` | Fast daily rollups of calories, macros, and workout completion; conversation histories and audit logging records. |
+
+### Indexing strategy
+
+Spotter pairs standard relational indexing with specialized PostgreSQL index types:
+
+| Index type | Purpose | Applied columns |
+| --- | --- | --- |
+| **B-Tree** | Equality checks, foreign keys, sorting, and compound lookups. | Primary keys, `user_id`, `(user_id, status)`, `(user_id, occurred_at)` |
+| **BRIN** *(Block Range Index)* | Extremely compact indexes (~1% size of B-Tree) for naturally ordered, append-only time-series data. | `meals.occurred_at`, `workouts.started_at`, `daily_summaries.summary_date`, `progress_entries.recorded_at`, `audit_logs.performed_at` |
+| **GIN with `pg_trgm`** | Trigram-based fuzzy matching and typo-tolerant search ("chiken" matches "chicken") across Arabic and English. | `foods.name_en`, `foods.name_ar`, `recipes.name_en`, `recipes.name_ar`, `exercises.name` |
+| **GIN (JSONB)** | High-speed containment and key/value lookup inside structured JSON arrays. | `foods.aliases`, `recipes.aliases`, `exercises.instructions` |
+| **Partial Unique Indexes** | Enforces business invariants conditionally at the database engine level. | `plans (user_id) WHERE status = 'ACTIVE'`<br/>`goals (user_id) WHERE status = 'ACTIVE'`<br/>`workouts (source_plan_workout_id, scheduled_date) WHERE status IN ('IN_PROGRESS', 'COMPLETED')` |
+
+### Architectural patterns & data integrity
+
+- **Materialized cache paradigm (`daily_summaries`):**
+  This table is treated architecturally as a **pre-computed cache**. The authoritative sources of truth are the raw immutable logs (`meal_items` and `workouts`). If summaries ever drift, they can be deterministically rebuilt from the source logs.
+- **Timezone-aware PL/pgSQL triggers:**
+  `fn_refresh_daily_summary_for_user(p_user_id UUID)` recalculates daily totals by converting UTC timestamps to the user's registered IANA timezone (`(occurred_at AT TIME ZONE v_timezone)::DATE`).
+- **Transactional job queueing (`pg-boss`):**
+  Verification email jobs are enqueued into PostgreSQL tables inside the same Prisma interactive transaction (`fromPrisma(tx)`), preventing orphan accounts or dropped messages.
+
+### Data sources and catalog seeding
+
+| Dataset | Source | Volume | Purpose |
+| --- | --- | --- | --- |
+| **Foods & Nutrition** | USDA FoodData Central (Foundation Foods) | ~400 items | Verified raw ingredients and whole foods with complete macronutrients per 100g. |
+| **Recipes & Dishes** | Curated regional & high-protein recipes | 50+ dishes | Multi-ingredient recipes with calculated and cached nutrition per serving. |
+| **Exercises** | `hasaneyldrm/exercises-dataset` | 1,324 movements | Categorized by body part, target muscle, equipment, difficulty, and Cloudinary GIF animations. |
+| **Plan Blueprints** | Spotter seed templates | Standard splits | Full-body, upper/lower, and push/pull/legs blueprints for AI plan grounding. |
+
+See the full [schema.prisma](backend/prisma/schema.prisma), the [database blueprint](docs/spotter-relational-database-blueprint.txt), and supplemental [SQL migrations](backend/prisma/sql/).
+
 ## Authentication as a system
 
 Authentication has an explicit lifecycle, from creating a verified identity to detecting reuse of an old credential.
@@ -126,6 +284,7 @@ Authentication has an explicit lifecycle, from creating a verified identity to d
 5. **Handle races and replay deliberately.** Reuse within a five-second grace window returns a race error. Later reuse revokes the affected session and its refresh tokens. The grace window reduces accidental lockouts from concurrent browser requests while accepting a short replay-detection tradeoff.
 6. **Enforce revocation on protected requests.** Middleware checks both JWT validity and the current database session, including ownership, expiry, revocation, and verified account status. Revocation therefore takes effect without waiting for the access JWT to expire.
 
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -136,7 +295,7 @@ sequenceDiagram
     C->>A: POST /api/auth/refresh + HttpOnly cookie
     A->>D: Find token hash and session
     D-->>A: Token lifecycle + session state
-    alt Token and session valid; token unused
+    alt Token and session valid, token unused
         A->>D: Transaction: consume token, insert replacement, link chain
         D-->>A: Commit if conditional consume succeeds
         A-->>C: Access JWT + replacement refresh cookie
@@ -263,7 +422,7 @@ Generated Prisma files and local `outputs/` logs are development artifacts, rath
 | Runtime and HTTP | JavaScript ES modules, Node.js, Express 5 |
 | Persistence | PostgreSQL, Prisma 7, `@prisma/adapter-pg`, `pg` |
 | Background work | `pg-boss`, Node `crypto`, Nodemailer |
-| AI | Groq SDK, function tools, JSON Schema, Zod |
+| AI | Groq SDK, Google GenAI (`@google/genai`), function tools, JSON Schema, Zod |
 | Validation and access | Zod, `jsonwebtoken`, bcryptjs, `express-rate-limit`, `cors`, `cookie-parser` |
 | Media | Cloudinary SDK and delivery URLs |
 | Dates and imports | `date-fns`, `date-fns-tz`, CSV parsing utilities |
@@ -273,7 +432,7 @@ The [technology handbook](docs/technology-handbook/README.md) explains how the i
 
 ## Run locally
 
-Use **Node.js 22.12+ on the Node 22 line, or Node 24+**, npm, and PostgreSQL. The database setup needs permission to create the `pg_trgm` extension. The current email transport uses Gmail with an app password; Cloudinary and Groq configuration are also required by environment validation.
+Use **Node.js 22.12+ on the Node 22 line, or Node 24+**, npm, and PostgreSQL. The database setup needs permission to create the `pg_trgm` extension. The current email transport uses Gmail with an app password; Cloudinary and Groq/Gemini configuration are also required by environment validation.
 
 ```sh
 cd backend
@@ -294,7 +453,8 @@ Create a local, untracked `backend/.env` with the following settings. Supply you
 | `SESSION_EXPIRATION` | `30d` (default) |
 | `EMAIL_USER`, `EMAIL_APP_PASSWORD` | Gmail sender and app password |
 | `CLOUD_NAME`, `CLOUD_API_KEY`, `CLOUD_API_SECRET` | Cloudinary configuration |
-| `GROQ_API_KEY`, `GROQ_MODEL_NAME` | Groq credentials and a model supporting the adapter's tool-calling and structured-output options |
+| `GROQ_API_KEY`, `GROQ_MODEL_NAME` | Groq credentials and model name |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Gemini credentials and model name (e.g. `gemini-3.8-flash`) |
 
 Generate the local secret with:
 
