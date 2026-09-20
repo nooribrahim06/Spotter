@@ -73,105 +73,268 @@ export function createPlanTools({ userId, source, db }) {
 
   let batchAttempted = false; // One AI tool round per generation, including failures.
   const handlers = new Map([
-    ["searchExercises", {
-      async run(query) {
-        const { exercises, totalItems } = await exerciseRepository.findExercises(
-          query, db, { allowedEquipment }
-        );
-        return {
-          items: exercises.map((exercise) => ({
-            id: exercise.id,
-            name: exercise.name,
-            exerciseType: exercise.exerciseType,
-            bodyPart: exercise.bodyPart,
-            difficulty: exercise.difficulty,
-            force: exercise.force,
-            mechanic: exercise.mechanic,
-            equipment: exercise.equipment,
-            primaryMuscles: exercise.primaryMuscles,
-            secondaryMuscles: exercise.secondaryMuscles,
-            trackingMetrics: exercise.trackingMetrics,
-          })),
-          pagination: pagination(query, totalItems),
-          appliedConstraints: { allowedEquipment },
-          restrictionValidation: "NOT_VERIFIED",
-        };
+   ["searchExercises", {
+  async run(query) {
+    let effectiveQuery = query;
+
+    let { exercises, totalItems } =
+      await exerciseRepository.findExercises(
+        effectiveQuery,
+        db,
+        { allowedEquipment }
+      );
+
+    let fallbackApplied = false;
+    let fallbackLevel = 0;
+
+    // Fallback 1:
+    // The model may guess a name that does not match the catalog.
+    // Keep its structured filters, but remove the text search.
+    if (exercises.length === 0 && query.search !== null) {
+      effectiveQuery = {
+        ...query,
+        search: null,
+        page: 1,
+      };
+
+      ({ exercises, totalItems } =
+        await exerciseRepository.findExercises(
+          effectiveQuery,
+          db,
+          { allowedEquipment }
+        ));
+
+      fallbackApplied = true;
+      fallbackLevel = 1;
+    }
+
+    // Fallback 2:
+    // Difficulty and explicit equipment are AI-selected filters.
+    // If they are still too restrictive, relax them.
+    //
+    // allowedEquipment is STILL enforced by the repository, so this
+    // does not give the model exercises requiring unavailable equipment.
+    if (exercises.length === 0) {
+      effectiveQuery = {
+        ...effectiveQuery,
+        search: null,
+        difficulty: null,
+        equipment: null,
+        page: 1,
+      };
+
+      ({ exercises, totalItems } =
+        await exerciseRepository.findExercises(
+          effectiveQuery,
+          db,
+          { allowedEquipment }
+        ));
+
+      fallbackApplied = true;
+      fallbackLevel = 2;
+    }
+
+    return {
+      items: exercises.map((exercise) => ({
+        id: exercise.id,
+        name: exercise.name,
+        exerciseType: exercise.exerciseType,
+        bodyPart: exercise.bodyPart,
+        difficulty: exercise.difficulty,
+        force: exercise.force,
+        mechanic: exercise.mechanic,
+        equipment: exercise.equipment,
+        primaryMuscles: exercise.primaryMuscles,
+        secondaryMuscles: exercise.secondaryMuscles,
+        trackingMetrics: exercise.trackingMetrics,
+      })),
+
+      pagination: pagination(effectiveQuery, totalItems),
+
+      fallbackApplied,
+      fallbackLevel,
+
+      appliedConstraints: {
+        allowedEquipment,
       },
-    }],
+
+      restrictionValidation: "NOT_VERIFIED",
+    };
+  },
+}],
     ["searchFoods", {
-      async run(query) {
-        const { foods, totalItems } = await foodRepository.searchFoods(userId, query, db);
-        return {
-          items: foods.map(foodCandidate),
-          nutritionBasis: "PER_100_GRAMS",
-          pagination: pagination(query, totalItems),
-          restrictionValidation: "NOT_VERIFIED",
-        };
-      },
-    }],
+  async run(query) {
+    let effectiveQuery = query;
+
+    let { foods, totalItems } =
+      await foodRepository.searchFoods(userId, effectiveQuery, db);
+
+    let fallbackApplied = false;
+
+    // If the AI searched a name that does not exist in our catalog,
+    // browse real catalog records instead of returning an empty result.
+    if (foods.length === 0 && query.search !== null) {
+      effectiveQuery = {
+        ...query,
+        search: null,
+        page: 1,
+      };
+
+      ({ foods, totalItems } =
+        await foodRepository.searchFoods(userId, effectiveQuery, db));
+
+      fallbackApplied = true;
+    }
+
+    return {
+      items: foods.map(foodCandidate),
+      nutritionBasis: "PER_100_GRAMS",
+      pagination: pagination(effectiveQuery, totalItems),
+      fallbackApplied,
+      restrictionValidation: "NOT_VERIFIED",
+    };
+  },
+}],
     ["searchRecipes", {
-      async run(query) {
-        const { recipes, totalItems } = await recipeRepository.searchRecipes(userId, query, db);
-        // Fetch details in one batch, rechecking visibility for recipes AND
-        // ingredient foods. Never expose another user's ingredient food.
-        const details = recipes.length === 0 ? [] :
-          await recipeRepository.findPlanRecipeDetails(
-            userId, recipes.map((recipe) => recipe.id), db
+  async run(query) {
+    async function searchAndBuild(searchQuery) {
+      const { recipes, totalItems } =
+        await recipeRepository.searchRecipes(userId, searchQuery, db);
+
+      // Fetch details in one batch, rechecking visibility for recipes AND
+      // ingredient foods. Never expose another user's ingredient food.
+      const details = recipes.length === 0
+        ? []
+        : await recipeRepository.findPlanRecipeDetails(
+            userId,
+            recipes.map((recipe) => recipe.id),
+            db
           );
-        const byId = new Map(details.map((recipe) => [recipe.id, recipe]));
-        const items = [];
-        for (const candidate of recipes) {
-          const recipe = byId.get(candidate.id);
-          // Seeded recipes may have no links; their stored nutrition is usable.
-          // Still exclude oversized lists rather than returning partial details.
-          if (!recipe ||
-              recipe.ingredients.length > PLAN_TOOL_LIMITS.ingredientsPerRecipe) continue;
-          items.push({
-            id: recipe.id,
-            nameEn: recipe.nameEn,
-            nameAr: recipe.nameAr,
-            cuisine: recipe.cuisine,
-            countryCode: recipe.countryCode,
-            servings: Number(recipe.servings),
-            totalYieldGrams: Number(recipe.totalYieldGrams),
-            caloriesPerServing: Number(recipe.caloriesPerServing),
-            proteinGramsPerServing: Number(recipe.proteinGramsPerServing),
-            carbohydrateGramsPerServing: Number(recipe.carbohydrateGramsPerServing),
-            fatGramsPerServing: Number(recipe.fatGramsPerServing),
-            // Missing links mean unknown ingredients, not an ingredient-free
-            // or allergen-free recipe. Never invent foods from its name.
-            ingredientDataStatus: recipe.ingredients.length > 0 ? "LINKED" : "UNAVAILABLE",
-            ingredients: recipe.ingredients.length === 0 ? null : recipe.ingredients.map((ingredient) => ({
-              quantityGrams: Number(ingredient.quantityGrams),
-              food: foodCandidate(ingredient.food),
-            })),
-          });
+
+      const byId = new Map(
+        details.map((recipe) => [recipe.id, recipe])
+      );
+
+      const items = [];
+
+      for (const candidate of recipes) {
+        const recipe = byId.get(candidate.id);
+
+        // Seeded recipes may have no links; their stored nutrition is usable.
+        // Still exclude oversized lists rather than returning partial details.
+        if (
+          !recipe ||
+          recipe.ingredients.length >
+            PLAN_TOOL_LIMITS.ingredientsPerRecipe
+        ) {
+          continue;
         }
-        return {
-          items,
-          nutritionBasis: "PER_SERVING",
-          ingredientQuantityBasis: "WHOLE_RECIPE",
-          pagination: pagination(query, totalItems),
-          // Pagination tracks searched candidates, before detail exclusions.
-          omittedCandidates: recipes.length - items.length,
-          restrictionValidation: "NOT_VERIFIED",
-        };
-      },
-    }],
+
+        items.push({
+          id: recipe.id,
+          nameEn: recipe.nameEn,
+          nameAr: recipe.nameAr,
+          cuisine: recipe.cuisine,
+          countryCode: recipe.countryCode,
+          servings: Number(recipe.servings),
+          totalYieldGrams: Number(recipe.totalYieldGrams),
+          caloriesPerServing: Number(recipe.caloriesPerServing),
+          proteinGramsPerServing: Number(recipe.proteinGramsPerServing),
+          carbohydrateGramsPerServing: Number(
+            recipe.carbohydrateGramsPerServing
+          ),
+          fatGramsPerServing: Number(recipe.fatGramsPerServing),
+
+          ingredientDataStatus:
+            recipe.ingredients.length > 0
+              ? "LINKED"
+              : "UNAVAILABLE",
+
+          ingredients:
+            recipe.ingredients.length === 0
+              ? null
+              : recipe.ingredients.map((ingredient) => ({
+                  quantityGrams: Number(ingredient.quantityGrams),
+                  food: foodCandidate(ingredient.food),
+                })),
+        });
+      }
+
+      return {
+        recipes,
+        totalItems,
+        items,
+      };
+    }
+
+    let effectiveQuery = query;
+
+    let result = await searchAndBuild(effectiveQuery);
+
+    let fallbackApplied = false;
+
+    // Important: check usable items, not only raw recipes.
+    // A search may find recipes that are later excluded during detail loading.
+    if (result.items.length === 0 && query.search !== null) {
+      effectiveQuery = {
+        ...query,
+        search: null,
+        page: 1,
+      };
+
+      result = await searchAndBuild(effectiveQuery);
+
+      fallbackApplied = true;
+    }
+
+    return {
+      items: result.items,
+      nutritionBasis: "PER_SERVING",
+      ingredientQuantityBasis: "WHOLE_RECIPE",
+      pagination: pagination(
+        effectiveQuery,
+        result.totalItems
+      ),
+      omittedCandidates:
+        result.recipes.length - result.items.length,
+      fallbackApplied,
+      restrictionValidation: "NOT_VERIFIED",
+    };
+  },
+}],
   ]);
 
   // Private helper: execute only entries already parsed by the batch schema.
   // Do not parse JSON or repeat argument validation here.
   async function executeSearch(search) {
     try {
-      const result = { ok: true, ...await handlers.get(search.name).run(search.arguments) };
+      const result = {
+      ok: true,
+      ...await handlers.get(search.name).run(search.arguments),
+    };
+
+    console.log({
+      catalogSearch: search.name,
+      arguments: search.arguments,
+      resultCount: result.items?.length ?? 0,
+      fallbackApplied: result.fallbackApplied ?? false,
+    });
       if (Buffer.byteLength(JSON.stringify(result), "utf8") > PLAN_TOOL_LIMITS.responseBytes) {
         return failure("PLAN_TOOL_RESULT_TOO_LARGE", "The catalog result exceeds the size limit.");
       }
       return result;
-    } catch {
-      return failure("PLAN_TOOL_SEARCH_FAILED", "Catalog search failed.");
-    }
+    }  catch (error) {
+  console.error("Plan catalog search failed:", {
+    search: search.name,
+    arguments: search.arguments,
+    error,
+  });
+
+  return failure(
+    "PLAN_TOOL_SEARCH_FAILED",
+    "Catalog search failed."
+  );
+}
   }
 
   return {

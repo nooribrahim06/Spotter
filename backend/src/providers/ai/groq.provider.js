@@ -30,6 +30,63 @@ import {
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
+// Local diagnostics only: model output may contain private profile information.
+// Log responses before validation so even unusable HTTP-200 output is visible.
+export function displayGroqResponse(stage, { model, attempt, response, data, error, elapsedMs }) {
+  if (env.NODE_ENV !== "development") return;
+
+  const headers = response?.headers ?? error?.headers;
+  const diagnosticHeaders = {};
+  for (const [name, value] of headers?.entries?.() ?? Object.entries(headers ?? {})) {
+    const key = name.toLowerCase();
+    if (key.startsWith("x-ratelimit-") ||
+        ["retry-after", "x-request-id", "request-id", "x-groq-id"].includes(key)) {
+      diagnosticHeaders[key] = value;
+    }
+  }
+
+  console.dir({
+    provider: "Groq",
+    stage,
+    model,
+    attempt,
+    status: response?.status ?? error?.status ?? null,
+    elapsedMs,
+    headers: diagnosticHeaders,
+    response: data ?? null,
+    error: error ? {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      body: error.error,
+      cause: error.cause?.message,
+    } : null,
+  }, { depth: null, maxArrayLength: null, maxStringLength: null, colors: false });
+}
+
+async function requestGroq(stage, body, options, retryMalformedToolCall = false) {
+  for (let attempt = 1; ; attempt++) {
+    const startedAt = Date.now();
+    try {
+      const { data, response } = await groq.chat.completions.create(body, options).withResponse();
+      displayGroqResponse(stage, { model: body.model, attempt, data, response, elapsedMs: Date.now() - startedAt });
+      return data;
+    } catch (error) {
+      displayGroqResponse(stage, { model: body.model, attempt, error, elapsedMs: Date.now() - startedAt });
+      const code = error?.error?.error?.code ?? error?.error?.code ?? error?.code;
+      // Only retry Groq's rejected tool output, before any catalog tool ran.
+      // Never repair/execute failed_generation or retry rate limits/auth failures.
+      if (!retryMalformedToolCall || attempt !== 1 || error?.status !== 400 || code !== "tool_use_failed") {
+        throw error;
+      }
+      body = { ...body, messages: [...body.messages, {
+        role: "user",
+        content: "The previous tool call was rejected as malformed. Call the provided tool exactly once using valid JSON arguments matching its schema. Include every required key, use null for unused nullable filters, and include no extra keys, trailing text, or trailing quotes. Do not write a tool-call wrapper inside the arguments.",
+      }] };
+    }
+  }
+}
+
 
 /* =========================================================
    FORMAT CONVERSION
@@ -257,9 +314,9 @@ export async function sendToolCallRequestToGroq(
 
   try {
     response =
-      await groq.chat.completions.create(
+      await requestGroq("1: catalog tool request",
         {
-          model: env.GROQ_MODEL_NAME,
+          model: env.GROQ_TOOL_MODEL,
 
           messages: groqMessages,
 
@@ -275,7 +332,8 @@ export async function sendToolCallRequestToGroq(
         },
         {
           timeout: REQUEST_TIMEOUT_MS,
-        }
+        },
+        true
       );
   } catch (error) {
     throw translateGroqError(error);
@@ -396,25 +454,20 @@ export async function sendContentGenerationRequestToGroq(
     convertOutputSchemaToGroqFormat(
       outputSchema
     );
-
   let response;
 
   try {
-    response =
-      await groq.chat.completions.create(
-        {
-          model: env.GROQ_MODEL_NAME,
-
-          messages: groqMessages,
-
-          response_format: responseFormat,
-
-          reasoning_effort: "medium",
-        },
-        {
-          timeout: REQUEST_TIMEOUT_MS,
-        }
-      );
+    response = await requestGroq(
+      "2: plan content generation",
+      {
+        model: env.GROQ_GENERATION_MODEL,
+        messages: groqMessages,
+        response_format: responseFormat,
+        reasoning_effort: "low",
+        max_completion_tokens: 6000,
+      },
+      { timeout: REQUEST_TIMEOUT_MS }
+    );
   } catch (error) {
     throw translateGroqError(error);
   }

@@ -29,7 +29,7 @@ import { PLAN_TOOL_LIMITS } from "./plan.tools.schema.js";
  * Keeping it out of system instructions helps establish the boundary;
  * prompts alone do not enforce permissions or guarantee safe output.
  */
-export const PLAN_PROMPT_VERSION = "4";
+export const PLAN_PROMPT_VERSION = "5";
 
 const sharedInstructions = `
 You help prepare a Spotter weekly training and nutrition plan.
@@ -80,6 +80,13 @@ Each entry has name and arguments. Allowed search names inside that array are
 searchExercises, searchRecipes, and searchFoods; they are not separate AI tools.
 Do not put searchPlanCatalog inside its own searches array.
 Do not write the plan, simulate tool results, or invent catalog IDs.
+Tool arguments must be a JSON object with searches as its only top-level key.
+Do not wrap the arguments in another name/arguments object or append trailing text.
+Include all required keys, using null for unused nullable filters.
+These are complete search entry examples (adapt values to the user):
+{"name":"searchExercises","arguments":{"search":null,"exerciseType":"STRENGTH","bodyPart":null,"difficulty":null,"equipment":null,"page":1,"limit":${PLAN_TOOL_LIMITS.resultsPerSearch}}}
+{"name":"searchRecipes","arguments":{"search":"chicken","page":1,"limit":${PLAN_TOOL_LIMITS.resultsPerSearch}}}
+{"name":"searchFoods","arguments":{"search":"rice","page":1,"limit":${PLAN_TOOL_LIMITS.resultsPerSearch}}}
 You will not receive results until this batch is complete; do not plan searches
 that depend on another search result from this same batch.
 
@@ -89,12 +96,20 @@ Choose a small, useful mix of searches covering the whole week's needs.
 Do not issue a separate search for every meal or every day; candidates can be
 reused across days. Avoid duplicate searches. Start with page 1.
 
-Follow each search entry's argument schema exactly. Include every required key.
-Use null for unused filters and numbers for page and limit.
 Search is a catalog-name text search, not a semantic nutrition search.
-Do not use phrases such as "healthy high-protein breakfast" as if the database
-understands nutrition goals. Use simple food/exercise names or supported filters.
-Do not invent filters such as mealType, allergenFree, or proteinMinimum.
+
+For foods and recipes, use only simple catalog-name searches.
+Good food searches are names such as "chicken", "rice", "banana", "yogurt",
+"tuna", or similar basic food names.
+Good recipe searches are simple names such as "chicken", "rice", "salad",
+"sandwich", or another likely recipe-name keyword.
+
+Do not search semantic concepts such as "high protein", "healthy breakfast",
+"quick meal", "weight loss meal", or similar descriptive phrases.
+If no useful catalog-name search is known, use search: null to browse candidates.
+
+Do not invent filters such as category, cuisine, countryCode, mealType,
+allergenFree, or proteinMinimum.
 Exercise difficulty uses the tool's enums; its highest level is EXPERT.
 
 Cover training patterns appropriate to the adapted template and available time.
@@ -138,7 +153,10 @@ GENERATION STAGE
 Produce one plan object matching the supplied response schema.
 Return JSON only, with no Markdown or surrounding explanation.
 Tools are disabled. Use the supplied search results; do not request more searches.
-
+Generate exactly seven days, MONDAY through SUNDAY.
+Keep the output concise.
+Do not repeat identical guidance across multiple days.
+Use null for optional day-specific text when there is nothing unique to add.
 CATALOG SELECTION
 Use only existing IDs from successful (ok: true) backend tool results.
 Match each ID to its catalog type: exerciseId, recipeId, or foodId.
@@ -168,6 +186,8 @@ Use null for measurements that do not apply to the exercise's trackingMetrics.
 Supply both repMin and repMax together, with repMin <= repMax, or both null.
 Every exercise needs reps, durationSeconds, or distanceMeters.
 Do not repeat an exercise ID within one workout; reuse across days is allowed.
+A variation needs its own supplied catalog ID; changing notes does not make it
+a different exercise. If only one suitable exercise exists, include it once.
 Do not guess a user's lifting capacity; use weightKg: null when unknown.
 Do not include a movement that conflicts with supplied restrictions or requires
 unavailable apparatus, even if the search returned it.
@@ -194,6 +214,10 @@ A meal option is ONE choice; its items are eaten together.
 Different options in the same slot are alternatives, not additional meals.
 EXACT_MEALS: provide one primary option for each scheduled meal slot.
 FLEXIBLE_MEALS: provide alternatives with reasonably comparable portions.
+For both styles, every day (including rest days) needs nonempty breakfastOptions,
+lunchOptions, and dinnerOptions; also snackOptions when snacksPerDay is 1.
+These required slots cannot be null or empty. nutritionGuidance cannot replace
+meal options, even though the shared schema permits null for other styles.
 MACRO_BASED and SIMPLE_GUIDANCE: meal-option fields may be null; supply useful
 nutritionGuidance consistent with targets and preferences.
 Respect requested meal/snack counts. The schema supports breakfast, lunch,

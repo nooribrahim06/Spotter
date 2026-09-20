@@ -207,7 +207,27 @@ export const planDaySchema = z.object({
   nutritionGuidance: z.string().trim().max(PLAN_CONTENT_LIMITS.guidanceLength).nullable(),
   notes: notesSchema,
   // An empty array explicitly represents a rest day.
-  workouts: z.array(workoutSchema).max(PLAN_CONTENT_LIMITS.workoutsPerDay),
+  workouts: z.preprocess(
+  (value) => {
+    if (!Array.isArray(value)) {
+      return value;
+    }
+
+    const isRestDay =
+      value.length > 0 &&
+      value.every(
+        (workout) =>
+          workout &&
+          typeof workout === "object" &&
+          typeof workout.name === "string" &&
+          workout.name.trim().toUpperCase() === "REST"
+      );
+
+    return isRestDay ? [] : value;
+  },
+  z.array(workoutSchema)
+    .max(PLAN_CONTENT_LIMITS.workoutsPerDay)
+),
 }).strict();
 
 // 9. THE COMPLETE PLAN: use this schema to validate the entire AI response.
