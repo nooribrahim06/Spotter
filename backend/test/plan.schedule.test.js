@@ -18,6 +18,7 @@ Object.assign(process.env, {
 const { getWeekdayForDate, getPlanDayForWeekday } = await import("../src/modules/plans/plan.rules.js");
 const { getDailySchedule } = await import("../src/modules/plans/plan.service.js");
 const { planScheduleQuerySchema } = await import("../src/modules/plans/plan.validate.js");
+const { findPlanForDate, isPlanInEffectOnDate } = await import("../src/modules/plans/plan.repository.js");
 
 const userId = "11111111-1111-4111-8111-111111111111";
 
@@ -28,6 +29,9 @@ test("getWeekdayForDate calculates exact uppercase weekday for calendar date and
   assert.equal(getWeekdayForDate("2026-10-06", "Africa/Cairo"), "TUESDAY");
   // 2026-10-11 is a Sunday
   assert.equal(getWeekdayForDate("2026-10-11", "Africa/Cairo"), "SUNDAY");
+  // Extreme timezones (UTC+14 and UTC-11) must not shift the calendar day
+  assert.equal(getWeekdayForDate("2026-10-05", "Pacific/Kiritimati"), "MONDAY");
+  assert.equal(getWeekdayForDate("2026-10-05", "Pacific/Pago_Pago"), "MONDAY");
 });
 
 test("getPlanDayForWeekday extracts the day corresponding to the requested weekday", () => {
@@ -116,4 +120,59 @@ test("getDailySchedule returns prescribed plan day and metadata for covered date
   assert.equal(schedule.day.dayOfWeek, "MONDAY");
   assert.equal(schedule.day.breakfastOptions[0].label, "Oatmeal");
   assert.equal(schedule.day.workouts[0].name, "Upper Body");
+});
+
+test("isPlanInEffectOnDate accurately validates activation and termination intervals", () => {
+  const plan = {
+    timezone: "UTC",
+    status: "ENDED",
+    startDate: new Date("2026-10-01T00:00:00Z"),
+    endDate: new Date("2026-10-31T00:00:00Z"),
+    activatedAt: new Date("2026-10-03T10:00:00Z"),
+    endedAt: new Date("2026-10-15T18:00:00Z"),
+  };
+
+  // Before scheduled start
+  assert.equal(isPlanInEffectOnDate(plan, "2026-09-30"), false);
+  // After scheduled end
+  assert.equal(isPlanInEffectOnDate(plan, "2026-11-01"), false);
+  // Within scheduled dates but before activation
+  assert.equal(isPlanInEffectOnDate(plan, "2026-10-02"), false);
+  // Within active interval
+  assert.equal(isPlanInEffectOnDate(plan, "2026-10-05"), true);
+  // On activation date
+  assert.equal(isPlanInEffectOnDate(plan, "2026-10-03"), true);
+  // On termination date
+  assert.equal(isPlanInEffectOnDate(plan, "2026-10-15"), true);
+  // After termination date (early exit)
+  assert.equal(isPlanInEffectOnDate(plan, "2026-10-16"), false);
+});
+
+test("findPlanForDate excludes plans that were not in effect on the requested date", async () => {
+  // Plan A was scheduled for all of October, but ended early on Oct 10
+  const endedEarlyPlan = {
+    id: "plan-ended-early",
+    userId,
+    status: "ENDED",
+    timezone: "UTC",
+    startDate: new Date("2026-10-01T00:00:00Z"),
+    endDate: new Date("2026-10-31T00:00:00Z"),
+    activatedAt: new Date("2026-10-01T00:00:00Z"),
+    endedAt: new Date("2026-10-10T12:00:00Z"),
+  };
+
+  const mockDb = {
+    plan: {
+      findMany: async () => [endedEarlyPlan],
+    },
+  };
+
+  // When querying Oct 15, the plan was NOT in effect
+  const resultAfter = await findPlanForDate(userId, "2026-10-15", mockDb);
+  assert.equal(resultAfter, null);
+
+  // When querying Oct 05, the plan WAS in effect
+  const resultDuring = await findPlanForDate(userId, "2026-10-05", mockDb);
+  assert.ok(resultDuring);
+  assert.equal(resultDuring.id, "plan-ended-early");
 });

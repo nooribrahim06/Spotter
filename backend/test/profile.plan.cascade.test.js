@@ -42,7 +42,8 @@ test("cascadeProfileDeletionToPlans ends active plans and discards draft plans f
 
   // Draft plans discarded
   assert.deepEqual(planUpdates[1].where, { userId, status: "DRAFT" });
-  assert.deepEqual(planUpdates[1].data, { status: "DISCARDED" });
+  assert.equal(planUpdates[1].data.status, "DISCARDED");
+  assert.ok(planUpdates[1].data.endedAt instanceof Date);
 });
 
 test("planGenerationRateLimiter is configured for 1 request per 24 hours per user", () => {

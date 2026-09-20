@@ -214,3 +214,53 @@ test("startWorkoutFromPlan creates a new workout with copied prescriptions", asy
   assert.equal(createdData.exercises.create[0].completed, false);
   assert.equal(createdData.exercises.create[0].exerciseOrder, 1);
 });
+
+test("startWorkoutFromPlan rejects if planWorkout weekday does not match today's weekday", async () => {
+  const { getWeekdayForDate } = await import("../src/modules/plans/plan.rules.js");
+  const today = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+  const todayWeekday = getWeekdayForDate(today);
+  const differentWeekday = todayWeekday === "MONDAY" ? "TUESDAY" : "MONDAY";
+
+  const mismatchWorkout = mockPlanWorkout({}, {
+    planDay: {
+      dayOfWeek: differentWeekday,
+      plan: {
+        id: "plan-1",
+        userId,
+        status: "ACTIVE",
+        timezone,
+        startDate: new Date("2026-01-01T00:00:00Z"),
+        endDate: new Date("2026-12-31T00:00:00Z"),
+      },
+    },
+  });
+
+  const mockDb = {
+    planWorkout: { findFirst: async () => mismatchWorkout },
+    workout: { findFirst: async () => null },
+  };
+
+  await assert.rejects(
+    () => startWorkoutFromPlan(userId, { planWorkoutId, scheduledDate: today }, mockDb),
+    { code: "PLAN_SCHEDULE_MISMATCH" }
+  );
+});
+
+test("startWorkoutFromPlan rejects if scheduledDate falls before plan activation date", async () => {
+  const today = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+  const futureActivation = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  const mockDb = {
+    planWorkout: {
+      findFirst: async () => mockPlanWorkout({
+        activatedAt: futureActivation,
+      }),
+    },
+    workout: { findFirst: async () => null },
+  };
+
+  await assert.rejects(
+    () => startWorkoutFromPlan(userId, { planWorkoutId, scheduledDate: today }, mockDb),
+    { code: "PLAN_SCHEDULE_MISMATCH" }
+  );
+});

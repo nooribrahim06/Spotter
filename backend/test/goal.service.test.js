@@ -480,6 +480,11 @@ test("completion atomically transitions only an owned active goal", async () => 
         ];
       },
     },
+    plan: {
+      async updateMany() {
+        return { count: 0 };
+      },
+    },
   };
 
   const result = await completeGoal(userId, goalId, db);
@@ -503,6 +508,11 @@ test("a draft goal can be cancelled atomically", async () => {
       async updateManyAndReturn(args) {
         updateQuery = args;
         return [goalRecord({ ...args.data, status: "CANCELLED" })];
+      },
+    },
+    plan: {
+      async updateMany() {
+        return { count: 0 };
       },
     },
   };

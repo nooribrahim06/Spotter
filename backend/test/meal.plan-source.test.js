@@ -30,6 +30,7 @@ const optionId = "44444444-4444-4444-8444-444444444444";
 function mockPlanDay(planOverrides = {}, dayOverrides = {}) {
   return {
     id: planDayId,
+    dayOfWeek: "MONDAY",
     breakfastOptions: [{ id: optionId, label: "Oatmeal Bowl", items: [] }],
     lunchOptions: null,
     dinnerOptions: null,
@@ -37,6 +38,8 @@ function mockPlanDay(planOverrides = {}, dayOverrides = {}) {
     plan: {
       id: "plan-1",
       userId,
+      status: "ACTIVE",
+      timezone: "UTC",
       startDate: new Date("2026-10-01T00:00:00Z"),
       endDate: new Date("2026-10-31T00:00:00Z"),
       ...planOverrides,
@@ -230,6 +233,7 @@ test("logMealFromPlan auto-extracts items and infers mealType from option slot",
     planDay: {
       findFirst: async () => ({
         id: planDayId,
+        dayOfWeek: "MONDAY",
         breakfastOptions: null,
         lunchOptions: [
           {
@@ -243,6 +247,8 @@ test("logMealFromPlan auto-extracts items and infers mealType from option slot",
         plan: {
           id: "plan-1",
           userId,
+          status: "ACTIVE",
+          timezone: "UTC",
           startDate: new Date("2026-10-01T00:00:00Z"),
           endDate: new Date("2026-10-31T00:00:00Z"),
         },
@@ -323,6 +329,7 @@ test("logMealFromPlan allows overriding mealType and items", async () => {
     planDay: {
       findFirst: async () => ({
         id: planDayId,
+        dayOfWeek: "MONDAY",
         breakfastOptions: [
           {
             id: optionId,
@@ -336,6 +343,8 @@ test("logMealFromPlan allows overriding mealType and items", async () => {
         plan: {
           id: "plan-1",
           userId,
+          status: "ACTIVE",
+          timezone: "UTC",
           startDate: new Date("2026-10-01T00:00:00Z"),
           endDate: new Date("2026-10-31T00:00:00Z"),
         },
@@ -407,4 +416,71 @@ test("logMealFromPlan allows overriding mealType and items", async () => {
   assert.equal(meal.items[0].foodId, customFoodId);
   assert.equal(createdMealData.mealType, "SNACK");
   assert.equal(createdMealData.notes, "Quick morning snack");
+});
+
+test("logMealFromPlan rejects if plan is DRAFT or DISCARDED", async () => {
+  for (const status of ["DRAFT", "DISCARDED"]) {
+    const mockDb = {
+      planDay: {
+        findFirst: async () => mockPlanDay({ status }),
+      },
+      food: { findMany: async () => [] },
+      recipe: { findMany: async () => [] },
+    };
+
+    await assert.rejects(
+      () => logMealFromPlan(userId, { planDayId, optionId, scheduledDate: "2026-10-05" }, mockDb),
+      { code: "PLAN_NOT_ACTIVE" }
+    );
+  }
+});
+
+test("logMealFromPlan rejects if planDay weekday does not match scheduledDate", async () => {
+  // 2026-10-05 is MONDAY, but planDay is TUESDAY
+  const mockDb = {
+    planDay: {
+      findFirst: async () => mockPlanDay({}, { dayOfWeek: "TUESDAY" }),
+    },
+    food: { findMany: async () => [] },
+    recipe: { findMany: async () => [] },
+  };
+
+  await assert.rejects(
+    () => logMealFromPlan(userId, { planDayId, optionId, scheduledDate: "2026-10-05" }, mockDb),
+    { code: "PLAN_SCHEDULE_MISMATCH" }
+  );
+});
+
+test("logMealFromPlan rejects if scheduledDate falls outside activation interval", async () => {
+  // Activated on Oct 10, but trying to log for Oct 5
+  const mockDbBefore = {
+    planDay: {
+      findFirst: async () => mockPlanDay({ activatedAt: new Date("2026-10-10T00:00:00Z") }),
+    },
+    food: { findMany: async () => [] },
+    recipe: { findMany: async () => [] },
+  };
+
+  await assert.rejects(
+    () => logMealFromPlan(userId, { planDayId, optionId, scheduledDate: "2026-10-05" }, mockDbBefore),
+    { code: "PLAN_SCHEDULE_MISMATCH" }
+  );
+
+  // Ended on Oct 03, but trying to log for Oct 5
+  const mockDbAfter = {
+    planDay: {
+      findFirst: async () => mockPlanDay({
+        status: "ENDED",
+        activatedAt: new Date("2026-10-01T00:00:00Z"),
+        endedAt: new Date("2026-10-03T12:00:00Z"),
+      }),
+    },
+    food: { findMany: async () => [] },
+    recipe: { findMany: async () => [] },
+  };
+
+  await assert.rejects(
+    () => logMealFromPlan(userId, { planDayId, optionId, scheduledDate: "2026-10-05" }, mockDbAfter),
+    { code: "PLAN_SCHEDULE_MISMATCH" }
+  );
 });

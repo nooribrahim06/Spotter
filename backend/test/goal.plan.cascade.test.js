@@ -44,7 +44,8 @@ test("cascadeGoalStatusChangeToPlans ends active plans and discards draft plans"
 
   // Draft plan discarded
   assert.deepEqual(planUpdates[1].where, { userId, goalId, status: "DRAFT" });
-  assert.deepEqual(planUpdates[1].data, { status: "DISCARDED" });
+  assert.equal(planUpdates[1].data.status, "DISCARDED");
+  assert.ok(planUpdates[1].data.endedAt instanceof Date);
 });
 
 test("completeGoal cascades to associated plans within transaction", async () => {
@@ -76,7 +77,9 @@ test("completeGoal cascades to associated plans within transaction", async () =>
   assert.equal(result.status, "COMPLETED");
   assert.equal(planUpdates.length, 2);
   assert.equal(planUpdates[0].data.status, "ENDED");
+  assert.ok(planUpdates[0].data.endedAt instanceof Date);
   assert.equal(planUpdates[1].data.status, "DISCARDED");
+  assert.ok(planUpdates[1].data.endedAt instanceof Date);
 });
 
 test("cancelGoal cascades to associated plans within transaction", async () => {
@@ -108,7 +111,9 @@ test("cancelGoal cascades to associated plans within transaction", async () => {
   assert.equal(result.status, "CANCELLED");
   assert.equal(planUpdates.length, 2);
   assert.equal(planUpdates[0].data.status, "ENDED");
+  assert.ok(planUpdates[0].data.endedAt instanceof Date);
   assert.equal(planUpdates[1].data.status, "DISCARDED");
+  assert.ok(planUpdates[1].data.endedAt instanceof Date);
 });
 
 test("getActivePlan returns null if the plan has passed its endDate in the plan's timezone", async () => {
@@ -153,4 +158,34 @@ test("getActivePlan returns plan if current date is within endDate", async () =>
   const result = await getActivePlan(userId, mockDb);
   assert.equal(result.id, "plan-2");
   assert.equal(result.status, "ACTIVE");
+});
+
+test("getActivePlan respects plan timezone across UTC rollover", async () => {
+  // Today in UTC vs today in America/Los_Angeles:
+  // If endDate is today in LA, it must remain ACTIVE even if UTC has rolled to next day
+  const now = new Date();
+  const todayInLA = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+
+  const plan = {
+    id: "plan-la",
+    userId,
+    status: "ACTIVE",
+    timezone: "America/Los_Angeles",
+    endDate: new Date(`${todayInLA}T00:00:00.000Z`),
+  };
+
+  const mockDb = {
+    plan: {
+      findFirst: async () => plan,
+    },
+  };
+
+  const result = await getActivePlan(userId, mockDb);
+  assert.ok(result);
+  assert.equal(result.id, "plan-la");
 });

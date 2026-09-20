@@ -43,6 +43,8 @@ test("expireOverduePlans executes raw updates and returns counts", async () => {
   assert.equal(queries.length, 2);
   assert.equal(result.discardedDraftsCount, 3);
   assert.equal(result.endedActivePlansCount, 2);
+  assert.ok(queries[0].strings.join("").includes("plans.timezone"));
+  assert.ok(queries[1].strings.join("").includes("plans.timezone"));
 });
 
 test("expireOverduePlans wraps unexpected DB errors in databaseError", async () => {

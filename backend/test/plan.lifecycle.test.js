@@ -246,6 +246,7 @@ test("discardOwnedDraftPlan successfully discards a DRAFT plan", async () => {
   const result = await discardOwnedDraftPlan(userId, planId, mockDb);
   assert.equal(result.status, "DISCARDED");
   assert.equal(updatedData.status, "DISCARDED");
+  assert.ok(updatedData.endedAt instanceof Date);
 });
 
 test("discardOwnedDraftPlan is idempotent if plan is already DISCARDED", async () => {
