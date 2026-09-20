@@ -9,6 +9,7 @@
     "db:sql": "node prisma/run-sql.js",
     "db:studio": "prisma studio",
     "dev": "nodemon src/index.js",
+    "start" : "node src/index.js",
     "test": "node --test",
     "test:onboarding-db": "node --test integration/onboarding.js",
     "test:profiles-db": "node --test integration/profiles.js",

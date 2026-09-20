@@ -4,8 +4,8 @@ import { boss, startQueue, VERIFICATION_EMAIL_QUEUE } from "../queues/queue.js";
 import { decryptQueueToken } from "../queues/queueCrypto.js";
 import { findPendingVerificationEmailRecipient } from "../modules/users/user.repository.js";
 import { sendVerificationEmail } from "../emails/verificationEmail.service.js";
+export async function startEmailWorker() {
 
-await startQueue();
 
 await boss.work(
   VERIFICATION_EMAIL_QUEUE,
@@ -50,3 +50,4 @@ await boss.work(
     });
   }
 );
+}

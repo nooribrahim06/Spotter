@@ -1,8 +1,8 @@
 // src/workers/plan.worker.js
 import { boss, startQueue, PLAN_LIFECYCLE_QUEUE } from "../queues/queue.js";
 import { expireOverduePlans } from "../modules/plans/plan.repository.js";
+export async function startPlanWorker() {
 
-await startQueue();
 
 console.log("[Plan Worker] Plan lifecycle worker started and listening for jobs...");
 
@@ -25,3 +25,4 @@ await boss.work(
     }
   }
 );
+}
