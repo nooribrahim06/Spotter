@@ -448,34 +448,42 @@ async function main() {
   // New exercise:
   //   -> created
 
-  await prisma.$transaction(
-    exercises.map(({ slug, ...data }) =>
-      prisma.exercise.upsert({
-        where: {
-          slug,
-        },
+  // Upsert makes the seed repeatable.
+//
+// Existing exercise:
+//   -> metadata + trackingMetrics + gifPublicId update
+//
+// New exercise:
+//   -> created
 
-        create: {
-          slug,
-          ...data,
-        },
+for (const [index, { slug, ...data }] of exercises.entries()) {
+  await prisma.exercise.upsert({
+    where: {
+      slug,
+    },
+    create: {
+      slug,
+      ...data,
+    },
+    update: data,
+  });
 
-        update: data,
-      })
-    )
+  console.log(
+    `Processed ${index + 1}/${exercises.length} exercises...`
   );
+}
 
-  const createdCount =
-    exercises.filter(
-      (exercise) =>
-        !existingSlugs.has(exercise.slug)
-    ).length;
+const createdCount =
+  exercises.filter(
+    (exercise) =>
+      !existingSlugs.has(exercise.slug)
+  ).length;
 
-  const updatedCount =
-    exercises.length - createdCount;
+const updatedCount =
+  exercises.length - createdCount;
 
-  const databaseCount =
-    await prisma.exercise.count();
+const databaseCount =
+  await prisma.exercise.count();
 
   console.log(
     `Created ${createdCount} exercises.`
