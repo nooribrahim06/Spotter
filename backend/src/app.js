@@ -72,7 +72,11 @@ app.use("/api/meals", mealRoutes);
 app.use("/api/workouts/:workoutId/exercises", workoutExerciseRoutes);
 
 app.use("/api/workouts", workoutRoutes);
-
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+  });
+});
 // must be global error handler, because it will catch all errors from all routes,
 //  and it must be after all routes, because it will catch errors from all routes.
 
