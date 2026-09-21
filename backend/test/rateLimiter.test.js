@@ -43,6 +43,19 @@ after(async () => {
   });
 });
 
+test("Vercel's forwarded client IP is accepted through one trusted proxy hop", async () => {
+  assert.equal(app.get("trust proxy"), 1);
+
+  const response = await fetch(`${baseUrl}/api/rate-limit-proxy-probe`, {
+    headers: {
+      "X-Forwarded-For": "203.0.113.10",
+    },
+  });
+
+  assert.equal(response.status, 404);
+  assert.ok(response.headers.get("ratelimit"));
+});
+
 test("every API endpoint is protected by the shared rate limit", async () => {
   const results = [];
 

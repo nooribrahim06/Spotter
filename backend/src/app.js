@@ -26,6 +26,11 @@ export const app = express();
 // Vercel can discover src/app.js directly, without starting a listener/workers.
 export default app;
 
+// Vercel always invokes the function through one trusted reverse-proxy hop and
+// overwrites X-Forwarded-For with the public client IP. Trust exactly that hop
+// so Express and express-rate-limit identify callers independently.
+app.set("trust proxy", 1);
+
 app.use(cors({
   origin(requestOrigin, callback) {
     if (!requestOrigin || requestOrigin === env.FRONTEND_URL) {
