@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
 
-import { Prisma, PrismaClient } from "../generated/prisma/client.ts";
+import { Prisma, PrismaClient } from "../src/generated/prisma/client.ts";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({

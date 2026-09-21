@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "src/index.js": {
-      "includeFiles": "generated/prisma/**"
+      "includeFiles": "src/generated/prisma/**"
     }
   }
 }

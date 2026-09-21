@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { formatInTimeZone } from "date-fns-tz";
-import { Prisma } from "../../../generated/prisma/client.ts";
+import { Prisma } from "../../generated/prisma/client.ts";
 import { prisma } from "../../lib/prisma.js";
 import { databaseError, AppError, PlanNotFoundError, PlanActivationConflictError, PlanStatusConflictError } from "../../middlewares/errorHandling.js";
 
