@@ -309,7 +309,7 @@ sequenceDiagram
     end
 ```
 
-Refresh cookies use `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Successful login and refresh responses use `Cache-Control: no-store`. Logout currently revokes the token's session; logout-all revokes all sessions for the identified user.
+Refresh cookies use `HttpOnly`, `Secure`, `SameSite=None`, and partitioned storage in production so the separately hosted Vercel frontend can send them without exposing the token to JavaScript. Local development uses `SameSite=Lax`. Successful login and refresh responses use `Cache-Control: no-store`. Logout currently revokes the token's session; logout-all revokes all sessions for the identified user.
 
 Explore the [auth service](backend/src/modules/auth/auth.service.js), [token implementation](backend/src/modules/auth/auth.tokens.js), [session middleware](backend/src/middlewares/auth.middleware.js), and [authentication contract tests](backend/test/auth.contract.test.js). Existing [request-sequence diagrams](Request%20Sequence/) document the individual flows.
 
