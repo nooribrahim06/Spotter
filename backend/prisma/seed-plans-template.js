@@ -3,7 +3,7 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 
-import { PrismaClient } from "../src/generated/prisma/client.ts";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({

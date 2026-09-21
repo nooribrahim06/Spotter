@@ -1,4 +1,4 @@
-import { Prisma } from "../../generated/prisma/client.ts";
+import { Prisma } from "@prisma/client";
 import { InvalidRecipeIngredientsError } from "../../middlewares/errorHandling.js";
 
 function decimal(value) {

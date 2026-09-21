@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
 
-import { PrismaClient } from "../src/generated/prisma/client.ts";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 if (!process.env.DATABASE_URL) {
