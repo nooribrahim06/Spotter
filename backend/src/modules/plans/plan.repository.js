@@ -419,10 +419,12 @@ export async function getPlanGenerationSourceData(userId, db = prisma) {
       nutritionProfile,
       trainingProfile,
     };
-  } catch {
-    throw new databaseError(
+  } catch (cause) {
+    const error = new databaseError(
       "Database error occurred while fetching plan generation source data."
     );
+    error.cause = cause;
+    throw error;
   }
 }
 

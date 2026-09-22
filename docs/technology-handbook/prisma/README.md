@@ -16,12 +16,12 @@ Prisma does not replace PostgreSQL. The schema describes how application models 
 
 ## How Spotter uses it
 
-[`prisma/schema.prisma`](../../../backend/prisma/schema.prisma) selects PostgreSQL and generates a client into `backend/generated/prisma`:
+[`prisma/schema.prisma`](../../../backend/prisma/schema.prisma) selects PostgreSQL and generates the JavaScript client package used by the backend:
 
 ```prisma
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
