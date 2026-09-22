@@ -14,6 +14,9 @@ process.env.EMAIL_USER = "test@example.com";
 process.env.EMAIL_APP_PASSWORD = "test-password";
 
 const { app } = await import("../src/app.js");
+const { getRefreshCookieBaseOptions } = await import(
+  "../src/modules/auth/auth.controller.js"
+);
 const { createAccessToken, verifyAccessToken } = await import(
   "../src/modules/auth/auth.tokens.js"
 );
@@ -83,6 +86,33 @@ test("refresh and session errors have distinct internal codes", () => {
   assert.equal(sessionError.code, "INVALID_SESSION");
   assert.equal(refreshError.message, "Invalid or expired session.");
   assert.equal(sessionError.message, "Invalid or expired session.");
+});
+
+test("production and Vercel refresh cookies support the cross-site frontend", () => {
+  const crossSiteCookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    partitioned: true,
+    path: "/",
+  };
+
+  assert.deepEqual(
+    getRefreshCookieBaseOptions("production", false),
+    crossSiteCookieOptions
+  );
+  assert.deepEqual(
+    getRefreshCookieBaseOptions("development", true),
+    crossSiteCookieOptions
+  );
+
+  assert.deepEqual(getRefreshCookieBaseOptions("development", false), {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    partitioned: false,
+    path: "/",
+  });
 });
 
 test("verification email escapes usernames and uses a CID mascot", () => {

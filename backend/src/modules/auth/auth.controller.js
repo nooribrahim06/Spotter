@@ -3,14 +3,17 @@ import { env } from "../../config/env.js";
 import { InvalidSessionError } from "../../middlewares/errorHandling.js";
 // we will use this as a header for the refresh token cookie, so that we can set the cookie options in one place and use it in multiple places.
 // the base will be needed for clearing the cookie, and the options will be needed for setting the cookie.
-export function getRefreshCookieBaseOptions(nodeEnv = env.NODE_ENV) {
-  const isProduction = nodeEnv === "production";
+export function getRefreshCookieBaseOptions(
+  nodeEnv = env.NODE_ENV,
+  isVercel = process.env.VERCEL === "1"
+) {
+  const requiresCrossSiteCookie = nodeEnv === "production" || isVercel;
 
   return {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    partitioned: isProduction,
+    secure: requiresCrossSiteCookie,
+    sameSite: requiresCrossSiteCookie ? "none" : "lax",
+    partitioned: requiresCrossSiteCookie,
     path: "/",
   };
 }
