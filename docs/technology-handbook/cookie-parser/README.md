@@ -52,7 +52,8 @@ While cookie-parser only *reads* cookies, the corresponding *write* side uses Ex
 res.cookie("refreshToken", result.refreshToken, {
   httpOnly: true,
   secure: env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+  partitioned: env.NODE_ENV === "production",
   path: "/",
   maxAge: env.REFRESH_TOKEN_EXPIRATION * 24 * 60 * 60 * 1000,
 });
@@ -61,7 +62,8 @@ res.cookie("refreshToken", result.refreshToken, {
 res.clearCookie("refreshToken", {
   httpOnly: true,
   secure: env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+  partitioned: env.NODE_ENV === "production",
   path: "/",
 });
 ```
