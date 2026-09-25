@@ -26,6 +26,8 @@ The versions below were observed in the local project on 2026-08-26.
 | [Node.js Test Runner](./node-test-runner/README.md) | Built into Node.js | Contract testing with `node:test` and `node:assert` |
 | [Nodemon](./nodemon/README.md) | 3.1.14 | Automatic development-server restarts |
 | [Cloudinary](./cloudinary/README.md) | 2.11.0 | Cloud media asset management and optimization |
+| [AI tool calling and catalog execution](./ai-tool-calling/README.md) | Application pattern; Gemini adapter via `@google/genai` 2.23.0 | Bounded model-directed catalog searches executed and authorized by the backend |
+| [Structured outputs and JSON Schema](./structured-output-schemas/README.md) | Zod 4.4.3; Gemini and Groq provider APIs | Schema-constrained AI search batches and generated plans with authoritative backend validation |
 
 
 ## Auth stack at a glance
